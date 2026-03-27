@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Facility Management — Login</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0d6b6b">
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <style>
+    :root {
+      --t7: #0f4c4c; --t6: #0d6b6b; --t5: #0d9488; --t4: #14b8a6;
+      --t1: #ccfbf1; --t0: #f0fdfa;
+      --gray9: #0f172a; --gray5: #64748b; --gray2: #e2e8f0;
+      --danger: #dc2626; --white: #fff;
+      --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font); min-height: 100vh;
+      background: linear-gradient(135deg, var(--t7) 0%, #134e4a 40%, #0f766e 100%);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; position: relative; overflow: hidden;
+    }
+    /* Decorative blobs */
+    body::before, body::after {
+      content: ''; position: absolute; border-radius: 50%;
+      pointer-events: none; opacity: .12;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, var(--t4), transparent 70%);
+      top: -150px; right: -150px;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, #34d399, transparent 70%);
+      bottom: -120px; left: -120px;
+    }
+
+    /* Card */
+    .login-card {
+      background: rgba(255,255,255,.97);
+      border-radius: 24px; width: 100%; max-width: 400px;
+      padding: 36px 32px;
+      box-shadow: 0 25px 60px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.5);
+      animation: cardIn .6s cubic-bezier(.4,0,.2,1);
+      position: relative; z-index: 1;
+    }
+    @keyframes cardIn {
+      from { transform: translateY(30px) scale(.96); opacity: 0; }
+      to   { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* Logo */
+    .login-logo {
+      width: 60px; height: 60px; margin: 0 auto 20px;
+      background: linear-gradient(135deg, var(--t7), var(--t4));
+      border-radius: 18px; display: flex; align-items: center;
+      justify-content: center; font-size: 26px;
+      box-shadow: 0 8px 24px rgba(13,100,100,.35);
+    }
+    .login-title {
+      text-align: center; font-size: 22px; font-weight: 800;
+      color: var(--gray9); margin-bottom: 4px;
+    }
+    .login-sub {
+      text-align: center; font-size: 13px; color: var(--gray5);
+      margin-bottom: 28px;
+    }
+
+    /* Fields */
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block; font-size: 12px; font-weight: 700;
+      color: var(--gray5); text-transform: uppercase;
+      letter-spacing: .5px; margin-bottom: 6px;
+    }
+    .input-wrap {
+      position: relative; display: flex; align-items: center;
+    }
+    .input-wrap i {
+      position: absolute; left: 13px; color: var(--gray5);
+      font-size: 14px; pointer-events: none;
+    }
+    .input-wrap input {
+      width: 100%; padding: 12px 13px 12px 38px;
+      border: 1.5px solid var(--gray2); border-radius: 12px;
+      font-family: var(--font); font-size: 14px; color: var(--gray9);
+      transition: .18s; background: #fafafa;
+    }
+    .input-wrap input:focus {
+      outline: none; border-color: var(--t5);
+      box-shadow: 0 0 0 3px rgba(13,148,136,.15);
+      background: var(--white);
+    }
+    .eye-btn {
+      position: absolute; right: 12px; background: none; border: none;
+      color: var(--gray5); cursor: pointer; font-size: 14px; padding: 4px;
+    }
+
+    /* Btn */
+    .btn-login {
+      width: 100%; padding: 14px; margin-top: 8px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, var(--t7), var(--t5));
+      color: var(--white); font-family: var(--font); font-size: 15px;
+      font-weight: 700; border-radius: 14px;
+      box-shadow: 0 6px 20px rgba(13,100,100,.35);
+      transition: .2s; display: flex; align-items: center;
+      justify-content: center; gap: 8px; position: relative; overflow: hidden;
+    }
+    .btn-login:hover { box-shadow: 0 8px 28px rgba(13,100,100,.45); transform: translateY(-1px); }
+    .btn-login:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+    .btn-login .spinner {
+      display: none; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.4);
+      border-top-color: white; border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    .btn-login.loading .btn-text { display: none; }
+    .btn-login.loading .spinner { display: block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Install */
+    .btn-install {
+      width: 100%; padding: 12px; margin-top: 10px; border: none; cursor: pointer;
+      background: transparent; border: 1.5px solid var(--gray2);
+      color: var(--t6); font-family: var(--font); font-size: 14px;
+      font-weight: 600; border-radius: 14px; transition: .18s;
+      display: none; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-install:hover { background: var(--t0); border-color: var(--t4); }
+
+    /* Error */
+    .error-msg {
+      min-height: 18px; margin-top: 10px; text-align: center;
+      font-size: 13px; font-weight: 600; color: var(--danger);
+    }
+
+    /* Footer */
+    .login-footer {
+      text-align: center; margin-top: 24px; font-size: 12px; color: var(--gray5);
+      border-top: 1px solid var(--gray2); padding-top: 16px;
+    }
+
+    /* PWA badge */
+    .pwa-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--t0); border: 1px solid var(--t1);
+      color: var(--t6); font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 99px; margin-bottom: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="pwa-badge" style="display:flex;justify-content:center;">
+      <i class="fa-solid fa-mobile-screen-button"></i> Facility Management PWA
+    </div>
+    <div class="login-logo">🏗️</div>
+    <h1 class="login-title">Welcome Back</h1>
+    <p class="login-sub">Sign in to your supervisor account</p>
+
+    <div class="field">
+      <label>Email Address</label>
+      <div class="input-wrap">
+        <i class="fa-regular fa-envelope"></i>
+        <input id="email" type="email" placeholder="you@jll.com" autocomplete="email"/>
+      </div>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <div class="input-wrap">
+        <i class="fa-solid fa-lock"></i>
+        <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password"/>
+        <button class="eye-btn" id="eyeBtn" type="button" tabindex="-1">
+          <i class="fa-regular fa-eye" id="eyeIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <button class="btn-login" id="loginBtn">
+      <span class="btn-text"><i class="fa-solid fa-right-to-bracket"></i> Sign In</span>
+      <div class="spinner"></div>
+    </button>
+    <button class="btn-install" id="installBtn">
+      <i class="fa-solid fa-download"></i> Install App
+    </button>
+
+    <div class="error-msg" id="loginMsg"></div>
+
+    <div class="login-footer">
+      Admin creates supervisor accounts<br>
+      © 2025 Facility Management — JLL
+    </div>
+  </div>
+
+  <script>
+    /* Service Worker */
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js');
+
+    /* Password toggle */
+    document.getElementById('eyeBtn').addEventListener('click', () => {
+      const inp = document.getElementById('password');
+      const ico = document.getElementById('eyeIcon');
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      ico.className = show ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+    });
+
+    /* PWA install */
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault(); deferredPrompt = e;
+      installBtn.style.display = 'flex';
+    });
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    });
+
+    /* Department map */
+    const DEPT_MAP = {
+      'hk@jll.com': 'H&K', 'me@jll.com': 'M&E',
+      'security@jll.com': 'Security', 'ehs@jll.com': 'EHS'
+    };
+
+    /* Login */
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const pass  = document.getElementById('password').value;
+      const msg   = document.getElementById('loginMsg');
+      const btn   = document.getElementById('loginBtn');
+
+      msg.textContent = '';
+      if (!email || !pass) { msg.textContent = '⚠ Enter email and password'; return; }
+
+      btn.classList.add('loading'); btn.disabled = true;
+
+      try {
+        await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+        const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+
+        /* Load display name from Firestore, fall back to localStorage prompt */
+        let displayName = localStorage.getItem('supervisorName');
+        try {
+          const uDoc = await firebase.firestore().collection('users').doc(cred.user.uid).get();
+          if (uDoc.exists && uDoc.data().displayName) displayName = uDoc.data().displayName;
+        } catch(e) {}
+
+        if (!displayName || !displayName.trim()) {
+          displayName = prompt('Enter your name (shown on reports):') || 'Supervisor';
+          /* Persist to Firestore */
+          try {
+            await firebase.firestore().collection('users').doc(cred.user.uid).set({
+              email, department: DEPT_MAP[email] || 'General', displayName: displayName.trim()
+            }, { merge: true });
+          } catch(e) {}
+        }
+
+        localStorage.setItem('supervisorName', displayName.trim());
+        localStorage.setItem('supervisorDept', DEPT_MAP[email] || 'General');
+        localStorage.setItem('email', email);
+
+        window.location.href = 'Home.html';
+      } catch(err) {
+        btn.classList.remove('loading'); btn.disabled = false;
+        const friendly = {
+          'auth/user-not-found': 'No account found for this email.',
+          'auth/wrong-password': 'Incorrect password.',
+          'auth/invalid-email': 'Invalid email format.',
+          'auth/too-many-requests': 'Too many attempts. Try again later.'
+        };
+        msg.textContent = friendly[err.code] || err.message;
+      }
+    });
+
+    /* Enter key submits */
+    ['email','password'].forEach(id =>
+      document.getElementById(id).addEventListener('keydown', e => {
+        if (e.key === 'Enter') document.getElementById('loginBtn').click();
+      })
+    );
+  </script>
+</body>
+</html>

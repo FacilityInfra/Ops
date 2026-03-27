@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Upload Activity</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="stylesheet" href="design-system.css"/>
+<!-- Firebase SDKs (must load before firebase-config.js) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/supervisor-common.js"></script>
+<!-- Image compression + Cloudinary -->
+<script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.min.js"></script>
+<script src="js/cloudinary-config.js"></script>
+<style>
+  .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+  .info-chip {
+    background:var(--teal-50); border:1px solid var(--teal-100);
+    border-radius:var(--r-md); padding:10px 12px;
+  }
+  .info-chip.vendor { background:var(--blue-50); border-color:var(--blue-100); }
+  .info-chip .ic-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--teal-600); }
+  .info-chip.vendor .ic-label { color:var(--blue-700); }
+  .info-chip .ic-value { font-size:14px; font-weight:700; color:var(--gray-900); margin-top:2px; }
+
+  .vendor-banner {
+    background:linear-gradient(135deg,var(--blue-700),var(--blue-500));
+    color:var(--white); padding:11px 16px;
+    display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600;
+  }
+
+  /* Photo drop zone */
+  .drop-zone {
+    border:2px dashed var(--gray-300); border-radius:var(--r-lg);
+    padding:26px 16px; text-align:center; cursor:pointer;
+    transition:var(--t-base); color:var(--gray-500);
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color:var(--teal-500); background:var(--teal-50); color:var(--teal-700);
+  }
+  .drop-zone i { font-size:30px; display:block; margin-bottom:8px; }
+  .drop-zone .dz-hint { font-size:13px; font-weight:600; }
+  .drop-zone .dz-sub { font-size:11px; margin-top:3px; opacity:.7; }
+
+  .photo-count-bar {
+    display:flex; align-items:center; justify-content:space-between;
+    margin:10px 0 6px;
+  }
+  .photo-count-bar label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--gray-500); margin:0; }
+  .count-chip {
+    font-size:12px; font-weight:700; padding:3px 10px; border-radius:var(--r-pill);
+  }
+  .count-ok { background:var(--success-bg); color:var(--success); }
+  .count-warn { background:var(--warning-bg); color:var(--warning); }
+  .count-err  { background:var(--danger-bg); color:var(--danger); }
+
+  .photo-grid { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .photo-thumb { position:relative; }
+  .photo-thumb img { width:88px; height:70px; object-fit:cover; border-radius:var(--r-md); display:block; border:2px solid var(--gray-100); }
+  .photo-thumb .del-btn {
+    position:absolute; top:-6px; right:-6px;
+    background:var(--danger); color:var(--white); border:2px solid var(--white);
+    border-radius:50%; width:20px; height:20px; cursor:pointer; font-size:10px;
+    display:flex; align-items:center; justify-content:center; font-weight:700;
+    box-shadow:var(--shadow-sm);
+  }
+
+  /* Progress */
+  .progress-wrap { background:var(--gray-100); border-radius:var(--r-pill); overflow:hidden; margin:10px 0; display:none; }
+  .progress-bar { height:8px; width:0%; background:linear-gradient(90deg,var(--teal-700),var(--teal-400)); transition:width .2s; border-radius:var(--r-pill); }
+  .progress-text { text-align:center; font-size:12px; color:var(--gray-500); font-weight:600; margin-top:4px; }
+
+  /* Status */
+  .status-msg { text-align:center; font-size:13px; font-weight:700; min-height:18px; }
+  .status-msg.ok { color:var(--success); }
+  .status-msg.err { color:var(--danger); }
+
+  /* Upload overlay */
+  #uploadOverlay {
+    position:fixed; inset:0; background:rgba(15,23,42,.75);
+    display:none; justify-content:center; align-items:center;
+    flex-direction:column; z-index:9000; color:var(--white); text-align:center; padding:24px;
+    backdrop-filter:blur(4px);
+  }
+  .upload-spinner {
+    width:64px; height:64px; border:5px solid rgba(255,255,255,.2);
+    border-top-color:var(--teal-400); border-radius:50%;
+    animation:spin .8s linear infinite; margin-bottom:18px;
+  }
+  .upload-counter { font-size:2rem; font-weight:800; color:var(--teal-400); margin:8px 0; }
+  .upload-label { font-size:14px; opacity:.8; }
+
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  @media (max-width:400px) {
+    .info-grid { grid-template-columns:1fr; }
+    .photo-thumb img { width:76px; height:60px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <button class="icon-btn" style="margin-right:4px" onclick="history.back()"><i class="fa-solid fa-arrow-left"></i></button>
+    <span id="headerTitle">Upload Activity</span>
+  </div>
+</header>
+
+<div id="vendorBanner" class="vendor-banner" style="display:none;">
+  <i class="fa-solid fa-truck"></i>
+  <span>Vendor Confirmation — <b id="bannerVendor"></b></span>
+</div>
+
+<div id="uploadOverlay">
+  <div class="upload-spinner"></div>
+  <div class="upload-counter" id="uploadCounter">0/0</div>
+  <div class="upload-label">Uploading photos… please wait</div>
+</div>
+
+<div id="toast"></div>
+
+<main class="page-content" style="padding-top:14px;">
+  <div class="card">
+
+    <!-- Info chips -->
+    <div class="info-grid" id="infoGrid">
+      <div class="info-chip" id="deptChip">
+        <div class="ic-label">Department</div>
+        <div class="ic-value" id="deptDisplay">—</div>
+      </div>
+      <div class="info-chip">
+        <div class="ic-label">Activity</div>
+        <div class="ic-value" id="actDisplay">—</div>
+      </div>
+      <div class="info-chip">
+        <div class="ic-label">Date</div>
+        <div class="ic-value" id="dateDisplay">—</div>
+      </div>
+      <div class="info-chip vendor" id="vendorChip" style="display:none;">
+        <div class="ic-label">Vendor</div>
+        <div class="ic-value" id="vendorDisplay">—</div>
+      </div>
+    </div>
+
+    <!-- Form fields -->
+    <div class="field">
+      <label>Supervisor Name</label>
+      <input type="text" id="supervisorName" placeholder="Your full name" autocomplete="name"/>
+    </div>
+
+    <div class="field" id="vendorOutcomeField" style="display:none;">
+      <label>Vendor Visit Outcome</label>
+      <select id="vendorOutcome">
+        <option value="Completed">✅ Completed — All areas done</option>
+        <option value="Partial">⚠️ Partial — Some areas missed</option>
+        <option value="Rescheduled">📅 Rescheduled — Vendor didn't attend</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Notes / Observations <span style="font-weight:400;color:var(--gray-500)">(Optional)</span></label>
+      <textarea id="notes" placeholder="Any observations or remarks…" rows="3"></textarea>
+    </div>
+
+    <!-- Photos -->
+    <div class="photo-count-bar">
+      <label>Photos <span style="font-weight:400;text-transform:none;letter-spacing:0">(3–9 required)</span></label>
+      <span class="count-chip count-warn" id="countChip">0 selected</span>
+    </div>
+
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('photoInput').click()">
+      <i class="fa-solid fa-camera-retro"></i>
+      <div class="dz-hint">Tap to add photos</div>
+      <div class="dz-sub">or drag & drop here · Max 9 photos</div>
+    </div>
+    <input type="file" id="photoInput" accept="image/*" multiple style="display:none;"/>
+    <div class="photo-grid" id="photoGrid"></div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-text" id="progressText"></div>
+
+    <div class="status-msg" id="statusMsg"></div>
+
+    <button class="btn btn-submit" id="submitBtn" style="margin-top:16px;">
+      <i class="fa-solid fa-paper-plane"></i> Submit Activity
+    </button>
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  // Use shared instances from firebase-config.js (already initialised)
+  const auth = window.auth || firebase.auth();
+  const db   = window.db   || firebase.firestore();
+
+  /* ── Parse params ── */
+  const p = new URLSearchParams(location.search);
+  const department   = p.get('department') || '';
+  const activityName = p.get('activity')   || '';
+  const activityId   = p.get('id')         || '';
+  const dateParam    = p.get('date')        || new Date().toLocaleDateString('en-CA');
+  const vendorName   = p.get('vendor')      || '';
+  const isVendor     = department === 'Vendor' || !!vendorName;
+
+  /* ── Populate UI ── */
+  document.getElementById('deptDisplay').textContent = department || '—';
+  document.getElementById('actDisplay').textContent  = activityName || '—';
+  document.getElementById('dateDisplay').textContent = dateParam;
+
+  if (isVendor) {
+    document.getElementById('headerTitle').textContent = 'Confirm Vendor Visit';
+    document.getElementById('vendorBanner').style.display = 'flex';
+    document.getElementById('bannerVendor').textContent = vendorName || activityName;
+    document.getElementById('vendorChip').style.display = '';
+    document.getElementById('vendorDisplay').textContent = vendorName || '—';
+    document.getElementById('deptChip').classList.add('vendor');
+    document.getElementById('vendorOutcomeField').style.display = '';
+    document.getElementById('submitBtn').innerHTML = '<i class="fa-solid fa-circle-check"></i> Confirm Vendor Visit';
+    document.getElementById('submitBtn').style.background = 'linear-gradient(135deg,var(--blue-700),var(--blue-500))';
+  }
+
+  /* ── Auth guard + autofill ── */
+  auth.onAuthStateChanged(async user => {
+    if (!user) { location.href = 'index.html'; return; }
+
+    // Autofill supervisor name: localStorage → Firestore profile → email prefix
+    let name = localStorage.getItem('supervisorName') || '';
+    if (!name) {
+      try {
+        const uDoc = await db.collection('users').doc(user.uid).get();
+        if (uDoc.exists && uDoc.data().displayName) name = uDoc.data().displayName;
+      } catch(e) {}
+    }
+    if (!name) name = user.displayName || user.email.split('@')[0];
+
+    if (name) {
+      document.getElementById('supervisorName').value = name;
+      localStorage.setItem('supervisorName', name); // cache for next time
+    }
+  });
+
+  /* ── Photos ── */
+  let photos = [];
+  const input = document.getElementById('photoInput');
+  const grid  = document.getElementById('photoGrid');
+  const chip  = document.getElementById('countChip');
+  const drop  = document.getElementById('dropZone');
+
+  function updateChip() {
+    const n = photos.length;
+    chip.textContent = `${n} selected`;
+    chip.className = 'count-chip ' + (n === 0 ? 'count-err' : n < 3 ? 'count-warn' : n <= 9 ? 'count-ok' : 'count-err');
+  }
+
+  function renderGrid() {
+    grid.innerHTML = '';
+    photos.forEach((f, i) => {
+      const wrap = document.createElement('div'); wrap.className = 'photo-thumb';
+      const img  = document.createElement('img'); img.src = URL.createObjectURL(f);
+      const del  = document.createElement('button'); del.className = 'del-btn'; del.innerHTML = '×';
+      del.onclick = () => { photos.splice(i, 1); renderGrid(); updateChip(); };
+      wrap.append(img, del); grid.appendChild(wrap);
+    });
+    updateChip();
+  }
+
+  function addFiles(files) {
+    const combined = [...photos, ...Array.from(files)];
+    photos = combined.slice(0, 9);
+    if (combined.length > 9) setStatus('Maximum 9 photos. Extra files were skipped.', 'err');
+    renderGrid();
+  }
+
+  input.addEventListener('change', e => addFiles(e.target.files));
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
+
+  /* ── Status ── */
+  function setStatus(msg, type = '') {
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg; el.className = 'status-msg' + (type ? ' '+type : '');
+  }
+
+  /* ── Upload to Cloudinary ── */
+  async function uploadImages(files) {
+    const overlay = document.getElementById('uploadOverlay');
+    const counter = document.getElementById('uploadCounter');
+    const bar     = document.getElementById('progressBar');
+    const pWrap   = document.getElementById('progressWrap');
+    const pText   = document.getElementById('progressText');
+
+    overlay.style.display = 'flex';
+    pWrap.style.display = 'block';
+    const uploaded = [];
+
+    for (let i = 0; i < files.length; i++) {
+      counter.textContent = `${i+1}/${files.length}`;
+      const compressed = await imageCompression(files[i], { maxSizeMB: 0.25, maxWidthOrHeight: 1920 });
+      const form = new FormData();
+      form.append('file', compressed);
+      form.append('upload_preset', cloudinaryConfig.uploadPreset);
+
+      await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`);
+        xhr.upload.onprogress = e => {
+          if (e.lengthComputable) {
+            const pct = Math.round(((i + e.loaded/e.total) / files.length) * 100);
+            bar.style.width = pct + '%';
+            pText.textContent = `${pct}% — Photo ${i+1} of ${files.length}`;
+          }
+        };
+        xhr.onload = () => {
+          const res = JSON.parse(xhr.responseText);
+          if (res.secure_url) { uploaded.push({ url: res.secure_url }); resolve(); }
+          else reject('Upload failed: ' + (res.error?.message || 'Unknown'));
+        };
+        xhr.onerror = () => reject('Network error');
+        xhr.send(form);
+      });
+    }
+
+    overlay.style.display = 'none';
+    return uploaded;
+  }
+
+  /* ── Submit ── */
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    const supName = document.getElementById('supervisorName').value.trim();
+    if (!supName) { setStatus('Please enter your name', 'err'); return; }
+    if (photos.length < 3) { setStatus('Please upload at least 3 photos', 'err'); return; }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    setStatus('Uploading…');
+    localStorage.setItem('supervisorName', supName);
+
+    try {
+      const uploadedPhotos = await uploadImages(photos);
+
+      const payload = {
+        date: dateParam, department, activityName,
+        supervisor: supName,
+        notes: document.getElementById('notes').value.trim(),
+        photos: uploadedPhotos, status: 'Completed',
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      if (isVendor) {
+        payload.activityType  = 'vendor';
+        payload.vendorName    = vendorName || activityName;
+        payload.vendorOutcome = document.getElementById('vendorOutcome').value;
+      } else {
+        payload.activityType = 'internal';
+      }
+
+      await db.collection('submissions').add(payload);
+
+      if (activityId) {
+        await db.collection('activitySchedules').doc(activityId).update({
+          lastCompletedBy:   supName,
+          lastCompletedDate: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+
+      setStatus('✅ Submitted successfully!', 'ok');
+      setTimeout(() => location.href = 'supervisor-dashboard.html', 1200);
+
+    } catch(err) {
+      console.error(err);
+      document.getElementById('uploadOverlay').style.display = 'none';
+      btn.disabled = false;
+      setStatus('❌ Upload failed: ' + err, 'err');
+    }
+  });
+});
+</script>
+</body>
+</html>

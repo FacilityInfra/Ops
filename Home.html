@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Home — Supervisor</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="stylesheet" href="design-system.css"/>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ── Page-specific styles ── */
+  .hero {
+    background: linear-gradient(135deg, var(--teal-900), var(--teal-600));
+    border-radius: var(--r-xl); padding: 18px;
+    color: var(--white); position: relative; overflow: hidden;
+  }
+  .hero::after {
+    content: ''; position: absolute; right: -20px; top: -20px;
+    width: 120px; height: 120px; border-radius: 50%;
+    background: rgba(255,255,255,.06); pointer-events: none;
+  }
+  .hero .greeting { font-size: 12px; opacity: .75; font-weight: 600; margin-bottom: 3px; }
+  .hero .name { font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+  .hero .dept-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,.18); padding: 3px 10px;
+    border-radius: var(--r-pill); font-size: 12px; font-weight: 700;
+    backdrop-filter: blur(8px); margin-top: 4px;
+  }
+  .hero .hero-icon {
+    position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+    font-size: 40px; opacity: .15;
+  }
+
+  /* Due item */
+  .due-item {
+    display: flex; align-items: center; padding: 10px 12px;
+    border-radius: var(--r-md); border: 1px solid var(--gray-100);
+    gap: 10px; background: var(--surface-raised);
+    transition: var(--t-fast);
+  }
+  .due-item:hover { border-color: var(--teal-400); background: var(--teal-50); }
+  .due-item.vendor-item {
+    border-color: var(--blue-100); background: var(--blue-50);
+  }
+  .due-item .due-info { flex: 1; min-width: 0; }
+  .due-item .due-name { font-weight: 700; font-size: 13px; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .due-item .due-meta { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
+
+  /* Top performer */
+  .top-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: var(--r-md);
+    background: var(--surface-raised); border: 1px solid var(--gray-100);
+    transition: var(--t-fast);
+  }
+  .top-item:hover { border-color: var(--teal-200); }
+  .top-medal { font-size: 22px; min-width: 28px; text-align: center; }
+  .top-name { font-weight: 700; font-size: 13px; }
+  .top-count { font-size: 12px; color: var(--gray-500); margin-top: 1px; }
+  .top-pct {
+    margin-left: auto; font-size: 12px; font-weight: 800;
+    color: var(--teal-700); background: var(--teal-100);
+    padding: 3px 9px; border-radius: var(--r-pill);
+  }
+
+  /* Quick links */
+  .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quick-link {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 10px; border-radius: var(--r-lg); font-weight: 700;
+    font-size: 13px; color: var(--white); text-decoration: none;
+    background: linear-gradient(135deg, var(--teal-700), var(--teal-400));
+    box-shadow: 0 4px 12px rgba(13,100,100,.25);
+    transition: var(--t-base);
+  }
+  .quick-link.vendor-ql { background: linear-gradient(135deg, var(--blue-700), var(--blue-500)); box-shadow: 0 4px 12px rgba(59,130,246,.25); }
+  .quick-link:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(13,100,100,.35); }
+  .quick-link.vendor-ql:hover { box-shadow: 0 6px 18px rgba(59,130,246,.35); }
+
+  /* See all */
+  .see-all { display: block; text-align: center; padding: 8px; font-size: 13px; font-weight: 700; color: var(--teal-600); text-decoration: none; }
+  .see-all:hover { color: var(--teal-800); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 16px 8px; color: var(--success);
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+
+  @media (min-width: 480px) { .quick-grid { grid-template-columns: repeat(4, 1fr); } }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-icon">🏗️</div>
+    Supervisor
+  </div>
+  <div class="header-right">
+    <button class="icon-btn" id="refreshBtn" title="Refresh"><i class="fa-solid fa-rotate-right"></i></button>
+    <div class="user-pill"><div class="avatar"><i class="fa-solid fa-user" style="font-size:10px"></i></div><span id="headerName">...</span></div>
+    <button class="icon-btn" id="logoutBtn" title="Logout"><i class="fa-solid fa-right-from-bracket"></i></button>
+  </div>
+</header>
+
+<div id="toast"></div>
+
+<main class="page-content">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="greeting" id="greetText">Good Morning</div>
+    <div class="name" id="heroName">Loading…</div>
+    <div class="dept-pill"><i class="fa-solid fa-building"></i><span id="heroDept">—</span></div>
+    <i class="fa-solid fa-hard-hat hero-icon"></i>
+  </div>
+
+  <!-- KPIs + filter -->
+  <section class="card">
+    <div class="filter-tabs" style="margin-bottom:14px;">
+      <button class="filter-tab active" data-range="today">Today</button>
+      <button class="filter-tab" data-range="week">This Week</button>
+      <button class="filter-tab" data-range="month">This Month</button>
+    </div>
+    <div class="kpi-grid cols-4">
+      <div class="kpi-card"><div class="kpi-value" id="kpiCompleted">–</div><div class="kpi-label">Completed</div></div>
+      <div class="kpi-card"><div class="kpi-value" id="kpiPending">–</div><div class="kpi-label">Pending</div></div>
+      <div class="kpi-card vendor-kpi"><div class="kpi-value" id="kpiVendorDone">–</div><div class="kpi-label">Vendor ✓</div></div>
+      <div class="kpi-card vendor-kpi"><div class="kpi-value" id="kpiVendorPend">–</div><div class="kpi-label">Vendor ⏳</div></div>
+    </div>
+  </section>
+
+  <!-- Due Today -->
+  <section class="card accent-left">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-circle-check"></i> Due Today</div>
+      <span class="badge badge-teal" id="dueBadge">0</span>
+    </div>
+    <div id="dueList" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="skeleton" style="height:46px;"></div>
+      <div class="skeleton" style="height:46px;margin-top:2px;"></div>
+    </div>
+    <a class="see-all" href="supervisor-dashboard.html">All activities →</a>
+  </section>
+
+  <!-- Vendor Pending -->
+  <section class="card accent-vendor">
+    <div class="card-header">
+      <div class="card-title" style="color:var(--blue-700);"><i class="fa-solid fa-truck"></i> Vendor — Pending This Period</div>
+      <span class="badge badge-blue" id="vendorBadge">0</span>
+    </div>
+    <div id="vendorList" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="skeleton" style="height:46px;"></div>
+    </div>
+  </section>
+
+  <!-- 7-day Trend -->
+  <section class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-chart-line"></i> 7-Day Activity Trend</div>
+    </div>
+    <canvas id="trendChart" height="100"></canvas>
+  </section>
+
+  <!-- Supervisor Chart -->
+  <section class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-users"></i><span id="supChartLabel">Team Completed</span></div>
+      <span class="badge badge-gray" id="rangeLabel">Today</span>
+    </div>
+    <canvas id="supChart" height="100"></canvas>
+  </section>
+
+  <!-- Top Performers -->
+  <section class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-trophy"></i> Top Performers</div>
+    </div>
+    <div id="topList" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="skeleton" style="height:48px;"></div>
+      <div class="skeleton" style="height:48px;margin-top:2px;"></div>
+    </div>
+  </section>
+
+  <!-- Quick Links -->
+  <section class="card">
+    <div class="card-title" style="margin-bottom:12px;"><i class="fa-solid fa-bolt"></i> Quick Links</div>
+    <div class="quick-grid">
+      <a class="quick-link" href="supervisor-dashboard.html"><i class="fa-solid fa-list-check"></i> Activities</a>
+      <a class="quick-link vendor-ql" href="supervisor-dashboard.html#vendor"><i class="fa-solid fa-truck"></i> Vendors</a>
+      <a class="quick-link" href="supervisor-inventory-issue.html"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
+      <a class="quick-link" href="supervisor-inventory-req.html"><i class="fa-solid fa-file-circle-plus"></i> Requests</a>
+    </div>
+  </section>
+
+</main>
+
+<div class="bottom-nav" id="bottomNav">
+  <button class="active" onclick="location.href='Home.html'"><i class="fa-solid fa-house"></i><span>Home</span></button>
+  <button onclick="location.href='supervisor-dashboard.html'"><i class="fa-solid fa-list-check"></i><span>Activity</span></button>
+  <button onclick="location.href='supervisor-inventory-issue.html'"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/supervisor-common.js"></script>
+<script>
+/* ── State ── */
+let dept = '', userName = '', currentRange = 'today';
+let trendChart = null, supChart = null;
+const DAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+/* ── Helpers ── */
+const esc = s => escapeHtml(s);
+function getRange(k) {
+  const now = new Date();
+  if (k === 'today') {
+    const s = new Date(now); s.setHours(0,0,0,0);
+    const e = new Date(now); e.setHours(23,59,59,999);
+    return { start:s, end:e, label:'Today' };
+  }
+  if (k === 'week') {
+    const day = now.getDay(), diff = day===0?-6:1-day;
+    const s = new Date(now); s.setDate(now.getDate()+diff); s.setHours(0,0,0,0);
+    const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
+    return { start:s, end:e, label:'This Week' };
+  }
+  const s = new Date(now.getFullYear(), now.getMonth(), 1);
+  const e = new Date(now.getFullYear(), now.getMonth()+1, 0, 23,59,59,999);
+  return { start:s, end:e, label:'This Month' };
+}
+function getWeekNum(d) {
+  const dt = new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7));
+  const yr = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+  return Math.ceil((((dt-yr)/864e5)+1)/7);
+}
+function getFortnight(d) { return d.getDate() <= 15 ? 1 : 2; }
+
+/* ── Auth guard ── */
+auth.onAuthStateChanged(async user => {
+  if (!user) { location.href = 'index.html'; return; }
+  let d = '';
+  try {
+    const uDoc = await db.collection('users').doc(user.uid).get();
+    if (uDoc.exists) { d = uDoc.data().department || ''; userName = uDoc.data().displayName || ''; }
+  } catch(e) {}
+  if (!d) { const m={'me@jll.com':'M&E','hk@jll.com':'H&K','security@jll.com':'Security','ehs@jll.com':'EHS'}; d = m[user.email]||''; }
+  if (!userName) userName = localStorage.getItem('supervisorName') || user.email.split('@')[0];
+  dept = d;
+  try { localStorage.setItem('supervisorDept', dept); localStorage.setItem('supervisorName', userName); } catch(e){}
+
+  const hr = new Date().getHours();
+  document.getElementById('greetText').textContent = hr<12?'Good Morning 👋':hr<17?'Good Afternoon ☀️':'Good Evening 🌙';
+  document.getElementById('heroName').textContent = userName;
+  document.getElementById('heroDept').textContent = dept || 'No Dept';
+  document.getElementById('headerName').textContent = userName;
+  document.getElementById('supChartLabel').textContent = dept ? `${dept} — Team` : 'All Teams';
+
+  if (!dept) toast('⚠️ Department not assigned to your account', 'error');
+
+  await loadAll('today');
+  setInterval(() => loadAll(currentRange), 10*60*1000);
+});
+
+async function loadAll(rangeKey) {
+  currentRange = rangeKey;
+  qsa('.filter-tab').forEach(b => b.classList.toggle('active', b.dataset.range === rangeKey));
+  document.getElementById('rangeLabel').textContent = getRange(rangeKey).label;
+  await Promise.all([loadKpis(rangeKey), loadDueToday(), loadVendorPending()]);
+}
+
+/* ── KPIs, trend, supervisor chart ── */
+async function loadKpis(rk) {
+  const {start, end} = getRange(rk);
+  let docs = [];
+  try {
+    const snap = await db.collection('submissions')
+      .where('timestamp','>=', firebase.firestore.Timestamp.fromDate(start))
+      .where('timestamp','<=', firebase.firestore.Timestamp.fromDate(end))
+      .orderBy('timestamp','desc').get();
+    docs = snap.docs.map(d => d.data());
+  } catch(e) { console.warn(e); }
+
+  const myDocs = dept ? docs.filter(d => d.department === dept || d.department === 'Vendor') : docs;
+  const intDocs = myDocs.filter(d => d.department !== 'Vendor');
+  const venDocs = myDocs.filter(d => d.department === 'Vendor');
+  const completed = intDocs.filter(d => d.photos?.length > 0).length;
+  const vDone = venDocs.filter(d => d.photos?.length > 0).length;
+
+  document.getElementById('kpiCompleted').textContent = completed;
+  document.getElementById('kpiVendorDone').textContent = vDone;
+  document.getElementById('kpiPending').textContent = '…';
+  document.getElementById('kpiVendorPend').textContent = '…';
+  calcPending(rk).then(p => document.getElementById('kpiPending').textContent = p);
+  calcVendorPending().then(p => document.getElementById('kpiVendorPend').textContent = p);
+
+  /* 7-day trend — single query, group client-side */
+  const ago7 = new Date(); ago7.setDate(ago7.getDate()-6); ago7.setHours(0,0,0,0);
+  let tDocs = docs;
+  if (rk === 'today') {
+    try {
+      const ts = await db.collection('submissions')
+        .where('timestamp','>=', firebase.firestore.Timestamp.fromDate(ago7))
+        .orderBy('timestamp','desc').get();
+      tDocs = ts.docs.map(d => d.data());
+    } catch(e) {}
+  }
+  const myT = dept ? tDocs.filter(d => d.department === dept) : tDocs;
+  const days = {};
+  myT.forEach(d => {
+    if (!d.timestamp || !d.photos?.length) return;
+    const k = d.timestamp.toDate().toISOString().slice(0,10);
+    days[k] = (days[k]||0)+1;
+  });
+  const tL=[], tV=[];
+  for (let i=6;i>=0;i--) {
+    const dt = new Date(); dt.setDate(dt.getDate()-i); dt.setHours(0,0,0,0);
+    tL.push(dt.toLocaleDateString(undefined,{weekday:'short',day:'numeric'}));
+    tV.push(days[dt.toISOString().slice(0,10)]||0);
+  }
+  renderTrend(tL, tV);
+
+  /* Supervisor chart */
+  const sm = {};
+  intDocs.forEach(d => { if (!d.photos?.length) return; const k = d.supervisor||'?'; sm[k]=(sm[k]||0)+1; });
+  const sArr = Object.entries(sm).map(([n,c])=>({n,c})).sort((a,b)=>b.c-a.c);
+  renderSupervisors(sArr.map(s=>s.n), sArr.map(s=>s.c));
+  renderTopPerformers(sArr);
+}
+
+async function calcPending(rk) {
+  /*
+   * HOW PENDING IS CALCULATED
+   * ─────────────────────────────────────────────────────────────────────
+   * TODAY:
+   *   • A schedule is "due today" if:
+   *       – frequency='Daily'                  → always due
+   *       – frequency='Weekly' & today's day name is in recurringDays
+   *       – nextDate matches today's date        (one-off)
+   *   • Subtract any that already have a completion with photos today.
+   *   • done key = "dept__activity" (one completion clears the day)
+   *
+   * WEEK / MONTH:
+   *   • Iterate every calendar day in the range.
+   *   • For each day, check which schedules are due on that day
+   *     (same rules as TODAY but applied to each cursor day).
+   *   • done key = "dept__activity__YYYY-MM-DD"
+   *     → completion on Monday does NOT clear a different occurrence on Friday.
+   *   • Weekly activities: each recurringDay produces ONE occurrence per
+   *     week. We count each occurrence date independently.
+   *   • The total pending = total_occurrences_in_range − completed_occurrences.
+   * ─────────────────────────────────────────────────────────────────────
+   */
+  try {
+    const today = new Date();
+    const { start, end } = getRange(rk);
+
+    const [schSnap, subSnap] = await Promise.all([
+      db.collection('activitySchedules').get(),
+      db.collection('submissions')
+        .where('timestamp','>=', firebase.firestore.Timestamp.fromDate(start))
+        .where('timestamp','<=', firebase.firestore.Timestamp.fromDate(end))
+        .get()
+    ]);
+
+    /* ── Build "done" set ── */
+    const done = new Set();
+    subSnap.forEach(docSnap => {
+      const s = docSnap.data();
+      if (!s.photos?.length) return;                        // not completed (no photos)
+      if (rk === 'today') {
+        done.add(`${s.department}__${s.activityName}`);
+      } else {
+        // date-scoped key so Monday completion ≠ Friday completion
+        const dt = s.timestamp ? s.timestamp.toDate() : new Date(s.date || Date.now());
+        done.add(`${s.department}__${s.activityName}__${dt.toISOString().slice(0,10)}`);
+      }
+    });
+
+    /* ── Count pending occurrences ── */
+    let p = 0;
+
+    if (rk === 'today') {
+      /* Single day — straightforward */
+      const todayName = DAY[today.getDay()];
+      schSnap.forEach(doc => {
+        const s = doc.data();
+        if (s.activityType === 'vendor') return;
+        if (dept && s.department !== dept) return;
+        if (done.has(`${s.department}__${s.activityName}`)) return; // completed today
+
+        let due = false;
+        if      (s.frequency === 'Daily')  due = true;
+        else if (s.frequency === 'Weekly') due = (s.recurringDays||[]).includes(todayName);
+        else if (s.nextDate) {
+          const nd = new Date(s.nextDate);
+          due = nd.getDate()===today.getDate() && nd.getMonth()===today.getMonth() && nd.getFullYear()===today.getFullYear();
+        }
+        if (due) p++;
+      });
+
+    } else {
+      /* WEEK or MONTH — walk every day in the range */
+      const cursor = new Date(start);
+      while (cursor <= end) {
+        const dayName = DAY[cursor.getDay()];
+        const dateStr = cursor.toISOString().slice(0,10);   // "YYYY-MM-DD"
+
+        schSnap.forEach(doc => {
+          const s = doc.data();
+          if (s.activityType === 'vendor') return;
+          if (dept && s.department !== dept) return;
+
+          /* Is this schedule due on the cursor day? */
+          let due = false;
+          if      (s.frequency === 'Daily')  due = true;
+          else if (s.frequency === 'Weekly') due = (s.recurringDays||[]).includes(dayName);
+          else if (s.nextDate) {
+            const nd = new Date(s.nextDate);
+            due = nd.getDate()===cursor.getDate() && nd.getMonth()===cursor.getMonth() && nd.getFullYear()===cursor.getFullYear();
+          }
+          if (!due) return;
+
+          /* Is it already completed on this exact date? */
+          const doneKey = `${s.department}__${s.activityName}__${dateStr}`;
+          if (!done.has(doneKey)) p++;
+        });
+
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+
+    return p;
+  } catch(e) {
+    console.error('calcPending error:', e);
+    return '?';
+  }
+}
+
+async function calcVendorPending() {
+  try {
+    const now = new Date(), mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [vs, ss] = await Promise.all([
+      db.collection('activitySchedules').where('activityType','==','vendor').get(),
+      db.collection('submissions')
+        .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(mStart))
+        .get() // no orderBy = no composite index needed
+    ]);
+    const subs = ss.docs.map(d => d.data()).filter(d => d.activityType==='vendor' || d.department==='Vendor');
+    let c = 0;
+    vs.forEach(doc => { if (isVendorDue(doc.data(), subs)) c++; });
+    return c;
+  } catch(e) { return '?'; }
+}
+
+function isVendorDue(s, subs) {
+  const now = new Date(), freq = s.frequency || 'Weekly';
+  if (!['Weekly','Bimonthly','Monthly'].includes(freq)) return true; // unknown freq = always show
+  const rel = subs.filter(sub => sub.activityName===s.activityName && sub.photos?.length>0);
+  for (const sub of rel) {
+    const sd = sub.timestamp ? sub.timestamp.toDate() : new Date(sub.date);
+    if (freq==='Weekly' && getWeekNum(sd)===getWeekNum(now) && sd.getFullYear()===now.getFullYear()) return false;
+    if (freq==='Bimonthly' && getFortnight(sd)===getFortnight(now) && sd.getMonth()===now.getMonth() && sd.getFullYear()===now.getFullYear()) return false;
+    if (freq==='Monthly' && sd.getMonth()===now.getMonth() && sd.getFullYear()===now.getFullYear()) return false;
+  }
+  return true;
+}
+
+function vendorPeriodLabel(freq) {
+  const now = new Date();
+  if (freq==='Weekly') {
+    const diff = now.getDay()===0?-6:1-now.getDay();
+    const mon = new Date(now); mon.setDate(now.getDate()+diff);
+    const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+    const f = d => d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    return `${f(mon)}–${f(sun)}`;
+  }
+  if (freq==='Bimonthly') return now.getDate()<=15 ? `1–15 ${now.toLocaleString('en',{month:'short'})}` : `16–end ${now.toLocaleString('en',{month:'short'})}`;
+  return now.toLocaleString('en',{month:'long',year:'numeric'});
+}
+
+/* ── Due Today ── */
+async function loadDueToday() {
+  const container = document.getElementById('dueList');
+  const badge = document.getElementById('dueBadge');
+  try {
+    const today = new Date(), todayName = DAY[today.getDay()];
+    const s = new Date(today); s.setHours(0,0,0,0);
+    const e = new Date(today); e.setHours(23,59,59,999);
+    const [sch, sub] = await Promise.all([
+      db.collection('activitySchedules').orderBy('createdAt','desc').get(),
+      db.collection('submissions').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(s))
+        .where('timestamp','<',firebase.firestore.Timestamp.fromDate(e)).get()
+    ]);
+    const done = new Set();
+    sub.forEach(d => { const sd=d.data(); if(sd.photos?.length>0) done.add(`${sd.department}__${sd.activityName}`); });
+    const items = [];
+    sch.forEach(doc => {
+      const sd = doc.data();
+      if (sd.activityType==='vendor') return;
+      if (dept && sd.department !== dept) return;
+      if (done.has(`${sd.department}__${sd.activityName}`)) return;
+      let show = false;
+      if (sd.frequency==='Daily') show=true;
+      else if (sd.frequency==='Weekly') show=(sd.recurringDays||[]).includes(todayName);
+      else if (sd.nextDate) { const nd=new Date(sd.nextDate); show=nd.getDate()===today.getDate()&&nd.getMonth()===today.getMonth(); }
+      if (show) items.push({name:sd.activityName, freq:sd.frequency, dept:sd.department, id:doc.id});
+    });
+    badge.textContent = items.length;
+    container.innerHTML = '';
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-check"></i> All done for today!</div>';
+      return;
+    }
+    items.slice(0,4).forEach(it => {
+      const div = document.createElement('div');
+      div.className = 'due-item';
+      div.innerHTML = `<div class="due-info"><div class="due-name">${esc(it.name)}</div><div class="due-meta"><span class="freq-badge">${esc(it.freq)}</span></div></div><button class="btn btn-action">Upload</button>`;
+      div.querySelector('button').onclick = () => location.href = `upload-activity.html?department=${encodeURIComponent(it.dept)}&activity=${encodeURIComponent(it.name)}&id=${it.id}`;
+      container.appendChild(div);
+    });
+    if (items.length > 4) {
+      const m = document.createElement('div');
+      m.style.cssText = 'text-align:center;font-size:12px;color:var(--gray-500);padding:4px';
+      m.textContent = `+${items.length-4} more`;
+      container.appendChild(m);
+    }
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--danger);font-size:13px;padding:8px">Could not load activities</div>';
+  }
+}
+
+/* ── Vendor Pending ── */
+async function loadVendorPending() {
+  const container = document.getElementById('vendorList');
+  const badge = document.getElementById('vendorBadge');
+  try {
+    const now = new Date(), mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [vs, ss] = await Promise.all([
+      db.collection('activitySchedules').where('activityType','==','vendor').get(),
+      db.collection('submissions')
+        .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(mStart))
+        .get() // no orderBy = no composite index needed
+    ]);
+    // Filter vendor submissions client-side (no composite index needed)
+    const subs = ss.docs.map(d => d.data()).filter(d => d.activityType==='vendor'||d.department==='Vendor');
+    const pending = [];
+    vs.forEach(doc => {
+      const s = doc.data();
+      if (isVendorDue(s, subs)) pending.push({name:s.activityName, vendor:s.vendorName||'Vendor', freq:s.frequency, id:doc.id});
+    });
+    badge.textContent = pending.length;
+    container.innerHTML = '';
+    if (!pending.length) {
+      container.innerHTML = '<div class="empty-state"><i class="fa-solid fa-circle-check"></i> All vendor visits confirmed!</div>';
+      return;
+    }
+    pending.forEach(it => {
+      const div = document.createElement('div');
+      div.className = 'due-item vendor-item';
+      div.innerHTML = `<div class="due-info"><div class="due-name" style="color:var(--blue-700)">${esc(it.vendor)}</div><div class="due-meta">${esc(it.name)} · ${vendorPeriodLabel(it.freq)}</div></div><button class="btn btn-vendor">Confirm</button>`;
+      div.querySelector('button').onclick = () => location.href = `upload-activity.html?department=Vendor&activity=${encodeURIComponent(it.name)}&id=${it.id}&vendor=${encodeURIComponent(it.vendor)}`;
+      container.appendChild(div);
+    });
+  } catch(e) {
+    container.innerHTML = '<div style="color:var(--danger);font-size:13px;padding:8px">Could not load vendor data</div>';
+  }
+}
+
+/* ── Charts ── */
+function renderTrend(labels, values) {
+  if (typeof Chart === 'undefined') { setTimeout(()=>renderTrend(labels,values), 200); return; }
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ data:values, tension:.35, fill:true, borderColor:'#0d9488', borderWidth:2, backgroundColor:'rgba(13,148,136,.1)', pointBackgroundColor:'#0d9488', pointRadius:4, pointHoverRadius:6 }] },
+    options: { responsive:true, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,ticks:{precision:0,font:{size:11}}}, x:{ticks:{font:{size:11}}} } }
+  });
+}
+function renderSupervisors(labels, values) {
+  if (typeof Chart === 'undefined') { setTimeout(()=>renderSupervisors(labels,values), 200); return; }
+  const ctx = document.getElementById('supChart').getContext('2d');
+  if (supChart) supChart.destroy();
+  if (!labels.length) { ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); return; }
+  supChart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ data:values, backgroundColor:'rgba(13,100,100,.75)', borderRadius:6, hoverBackgroundColor:'#0d9488' }] },
+    options: { responsive:true, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true,ticks:{precision:0,font:{size:11}}}, x:{ticks:{font:{size:11}}} } }
+  });
+}
+function renderTopPerformers(arr) {
+  const el = document.getElementById('topList');
+  if (!arr.length) { el.innerHTML = '<div class="empty-state">No data for this period</div>'; return; }
+  const medals = ['🥇','🥈','🥉'], max = arr[0]?.c || 1;
+  el.innerHTML = '';
+  arr.slice(0,3).forEach((s,i) => {
+    const div = document.createElement('div');
+    div.className = 'top-item';
+    div.innerHTML = `<div class="top-medal">${medals[i]}</div><div style="flex:1"><div class="top-name">${esc(s.n)}</div><div class="top-count">${s.c} completed</div></div><div class="top-pct">${Math.round(s.c/max*100)}%</div>`;
+    el.appendChild(div);
+  });
+}
+
+/* ── Events ── */
+qsa('.filter-tab').forEach(btn => btn.addEventListener('click', () => loadAll(btn.dataset.range)));
+document.getElementById('refreshBtn').addEventListener('click', async () => { toast('Refreshing…','info'); await loadAll(currentRange); toast('Updated!'); });
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  const n = localStorage.getItem('supervisorName');
+  try { localStorage.clear(); } catch(e) {}
+  if (n) localStorage.setItem('supervisorName', n);
+  auth.signOut().finally(() => location.href = 'index.html');
+});
+</script>
+</body>
+</html>

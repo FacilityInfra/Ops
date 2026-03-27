@@ -1,0 +1,2389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FM Inventory — Admin v4.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ══ Design Tokens ══ */
+:root {
+  --t9:#0f4c4c; --t8:#0a5c5c; --t7:#0d6b6b; --t5:#0d9488; --t4:#14b8a6; --t2:#99f6e4; --t1:#ccfbf1; --t0:#f0fdfa;
+  --blue:#1d4ed8; --blue-l:#dbeafe; --blue-m:#3b82f6;
+  --warn:#d97706; --warn-l:#fef3c7; --warn-d:#92400e;
+  --ok:#16a34a; --ok-l:#dcfce7; --ok-d:#14532d;
+  --danger:#dc2626; --danger-l:#fee2e2; --danger-d:#7f1d1d;
+  --purple:#7c3aed; --purple-l:#ede9fe;
+  --gray9:#0f172a; --gray8:#1e293b; --gray7:#334155; --gray6:#475569;
+  --gray5:#64748b; --gray4:#94a3b8; --gray3:#cbd5e1; --gray2:#e2e8f0; --gray1:#f1f5f9; --white:#fff;
+  --font:'Plus Jakarta Sans',system-ui,sans-serif;
+  --shadow:0 2px 12px rgba(15,23,42,.07);
+  --shadow-lg:0 8px 30px rgba(15,23,42,.12);
+  --r:10px; --r-lg:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font);background:#eef2f7;color:var(--gray9);font-size:14px;min-height:100vh;}
+
+/* ══ Scrollbar ══ */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--gray1);}
+::-webkit-scrollbar-thumb{background:var(--t2);border-radius:99px;}
+
+/* ══ Header ══ */
+.hd{background:linear-gradient(135deg,var(--t9) 0%,var(--t7) 60%,var(--t5) 100%);color:#fff;padding:0 20px;height:56px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 16px rgba(13,100,100,.3);position:sticky;top:0;z-index:200;}
+.hd-brand{font-size:16px;font-weight:800;display:flex;align-items:center;gap:10px;}
+.hd-brand .logo-box{width:32px;height:32px;background:rgba(255,255,255,.18);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.hd-brand .version{background:rgba(255,255,255,.15);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.5px;opacity:.9;}
+.hd-right{display:flex;gap:8px;align-items:center;}
+.hd-user{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;}
+.btn-logout{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-family:var(--font);font-weight:700;font-size:12px;transition:.2s;display:flex;align-items:center;gap:5px;}
+.btn-logout:hover{background:rgba(255,255,255,.28);}
+
+/* ══ Layout ══ */
+main{max-width:1400px;margin:0 auto;padding:16px;}
+
+/* ══ Tabs ══ */
+.tabs-wrap{background:var(--white);border-radius:var(--r-lg);padding:5px;box-shadow:var(--shadow);margin-bottom:14px;display:flex;gap:2px;flex-wrap:wrap;}
+.tab{padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;color:var(--gray5);border:none;background:transparent;font-family:var(--font);transition:.18s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.tab:hover{background:var(--t0);color:var(--t7);}
+.tab.active{background:linear-gradient(135deg,var(--t9),var(--t5));color:#fff;box-shadow:0 3px 10px rgba(13,100,100,.3);}
+.tab .tab-badge{background:rgba(255,255,255,.25);padding:1px 6px;border-radius:99px;font-size:10px;min-width:18px;text-align:center;}
+.tab:not(.active) .tab-badge{background:var(--danger);color:#fff;}
+
+/* ══ KPI row ══ */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:500px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--white);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;border-left:4px solid transparent;transition:.2s;}
+.kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);}
+.kpi-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.kpi-body{}
+.kpi-val{font-size:1.5rem;font-weight:800;line-height:1;}
+.kpi-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray5);margin-top:3px;}
+.kpi.k-total{border-left-color:var(--t5);} .kpi.k-total .kpi-icon{background:var(--t0);color:var(--t5);}
+.kpi.k-low{border-left-color:var(--warn);} .kpi.k-low .kpi-icon{background:var(--warn-l);color:var(--warn);}
+.kpi.k-pend{border-left-color:var(--blue);} .kpi.k-pend .kpi-icon{background:var(--blue-l);color:var(--blue);}
+.kpi.k-value{border-left-color:var(--ok);} .kpi.k-value .kpi-icon{background:var(--ok-l);color:var(--ok);}
+.kpi.k-indent{border-left-color:var(--purple);} .kpi.k-indent .kpi-icon{background:var(--purple-l);color:var(--purple);}
+
+/* ══ Card ══ */
+.card{background:var(--white);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:18px;}
+.card-title{font-size:14px;font-weight:800;color:var(--gray8);margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.card-title i{color:var(--t5);}
+
+/* ══ Grid ══ */
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.full{grid-column:1/-1;}
+@media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr;}.full{grid-column:1;}}
+@media(min-width:641px) and (max-width:900px){.g3{grid-template-columns:repeat(2,1fr);}.g4{grid-template-columns:repeat(2,1fr);}}
+
+/* ══ Form fields ══ */
+.field{position:relative;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray5);margin-bottom:5px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:9px 12px;border:1.5px solid var(--gray3);border-radius:8px;
+  font-family:var(--font);font-size:13px;color:var(--gray9);background:var(--white);transition:.15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--t5);box-shadow:0 0 0 3px rgba(13,148,136,.12);}
+.field input.err,.field select.err{border-color:var(--danger)!important;box-shadow:0 0 0 3px rgba(220,38,38,.1)!important;}
+.field .err-msg{font-size:11px;color:var(--danger);margin-top:3px;font-weight:600;display:none;}
+.field .err-msg.show{display:block;}
+.field select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
+.field textarea{resize:vertical;min-height:60px;}
+.field .hint{font-size:11px;color:var(--gray5);margin-top:3px;}
+
+/* ══ Buttons ══ */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:none;border-radius:8px;font-family:var(--font);font-weight:700;font-size:13px;cursor:pointer;transition:.18s;}
+.btn-primary{background:linear-gradient(135deg,var(--t7),var(--t4));color:#fff;box-shadow:0 3px 10px rgba(13,100,100,.25);}
+.btn-primary:hover{box-shadow:0 4px 14px rgba(13,100,100,.4);transform:translateY(-1px);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.btn-ghost{background:var(--gray1);color:var(--gray7);border:1.5px solid var(--gray2);}
+.btn-ghost:hover{background:var(--t0);border-color:var(--t4);color:var(--t7);}
+.btn-warn{background:var(--warn-l);color:var(--warn-d);border:1px solid #fde68a;}
+.btn-warn:hover{background:#fde68a;}
+.btn-danger{background:var(--danger-l);color:var(--danger);border:1px solid #fca5a5;}
+.btn-danger:hover{background:#fca5a5;}
+.btn-blue{background:var(--blue-l);color:var(--blue);border:1px solid #bfdbfe;}
+.btn-blue:hover{background:#bfdbfe;}
+.btn-ok{background:var(--ok-l);color:var(--ok);border:1px solid #bbf7d0;}
+.btn-ok:hover{background:#bbf7d0;}
+.btn-purple{background:var(--purple-l);color:var(--purple);border:1px solid #ddd6fe;}
+.btn-purple:hover{background:#ddd6fe;}
+.btn-sm{padding:5px 10px;font-size:11px;border-radius:6px;}
+.btn-xs{padding:3px 8px;font-size:10px;border-radius:5px;}
+
+/* ══ Table ══ */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r);}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead tr{background:linear-gradient(90deg,var(--t8),var(--t5));}
+th{padding:10px 10px;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;text-align:left;white-space:nowrap;}
+th:first-child{border-radius:8px 0 0 0;}th:last-child{border-radius:0 8px 0 0;}
+tbody tr{border-bottom:1px solid var(--gray1);transition:.12s;}
+tbody tr:hover{background:var(--t0);}
+td{padding:9px 10px;vertical-align:middle;color:var(--gray7);}
+td.bold{font-weight:700;color:var(--gray9);}
+
+/* ══ Stock bar ══ */
+.sbar-wrap{height:5px;background:var(--gray2);border-radius:99px;overflow:hidden;width:60px;margin-top:4px;}
+.sbar{height:100%;border-radius:99px;transition:width .4s;}
+.sbar.ok{background:linear-gradient(90deg,var(--t5),var(--t4));}
+.sbar.low{background:linear-gradient(90deg,var(--warn),#fcd34d);}
+.sbar.crit{background:var(--danger);}
+
+/* ══ Badges ══ */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700;}
+.b-ok{background:var(--ok-l);color:var(--ok);}
+.b-warn{background:var(--warn-l);color:var(--warn);}
+.b-danger{background:var(--danger-l);color:var(--danger);}
+.b-blue{background:var(--blue-l);color:var(--blue);}
+.b-gray{background:var(--gray1);color:var(--gray5);}
+.b-purple{background:var(--purple-l);color:var(--purple);}
+.b-teal{background:var(--t0);color:var(--t7);}
+
+/* ══ Toast ══ */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9000;pointer-events:none;}
+.toast-inner{padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;color:#fff;box-shadow:0 6px 20px rgba(0,0,0,.2);animation:toastIn .3s ease;display:flex;align-items:center;gap:8px;}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.t-ok{background:linear-gradient(135deg,var(--t7),var(--t5));}
+.t-err{background:linear-gradient(135deg,#b91c1c,var(--danger));}
+.t-info{background:linear-gradient(135deg,var(--blue),var(--blue-m));}
+.t-warn{background:linear-gradient(135deg,#b45309,var(--warn));}
+
+/* ══ Confirm Modal ══ */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(3px);z-index:5000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal-box{background:var(--white);border-radius:var(--r-lg);padding:28px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(15,23,42,.2);animation:slideUp .25s ease;}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+.modal-icon{width:52px;height:52px;border-radius:14px;margin-bottom:16px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.modal-icon.danger{background:var(--danger-l);color:var(--danger);}
+.modal-icon.warn{background:var(--warn-l);color:var(--warn);}
+.modal-icon.info{background:var(--t0);color:var(--t5);}
+.modal-title{font-size:17px;font-weight:800;color:var(--gray9);margin-bottom:6px;}
+.modal-body{font-size:13px;color:var(--gray6);line-height:1.6;margin-bottom:22px;}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;}
+
+/* ══ Slide Modal (for History / Large forms) ══ */
+.slide-modal{position:fixed;inset:0;z-index:4000;display:flex;align-items:flex-start;justify-content:flex-end;}
+.slide-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.4);backdrop-filter:blur(2px);}
+.slide-panel{position:relative;width:min(560px,100%);height:100%;background:var(--white);overflow-y:auto;box-shadow:-8px 0 40px rgba(15,23,42,.15);animation:slideRight .28s ease;}
+@keyframes slideRight{from{transform:translateX(100%)}to{transform:none}}
+.slide-header{background:linear-gradient(135deg,var(--t9),var(--t5));color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.slide-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:.2s;}
+.slide-close:hover{background:rgba(255,255,255,.3);}
+.slide-body{padding:20px;}
+
+/* ══ Receive panel (inline) ══ */
+.receive-panel{background:var(--t0);border:1.5px solid var(--t1);border-radius:var(--r);padding:12px;margin-top:8px;display:none;}
+
+/* ══ Alert row ══ */
+.alert-row{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--danger-l);border:1px solid #fca5a5;border-radius:8px;margin-bottom:6px;}
+.alert-row i{color:var(--danger);font-size:14px;flex-shrink:0;}
+.alert-row .al-txt{flex:1;font-size:12px;font-weight:700;color:var(--danger-d);}
+.alert-row .al-qty{font-size:12px;font-weight:800;color:var(--danger);}
+
+/* ══ Request card ══ */
+.req-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border:1px solid var(--gray2);border-radius:var(--r);margin-bottom:7px;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+.req-row .rr-icon{width:36px;height:36px;border-radius:9px;background:var(--t0);color:var(--t5);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.req-row .rr-body{flex:1;min-width:0;}
+.req-row .rr-name{font-size:13px;font-weight:700;color:var(--gray9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.req-row .rr-meta{font-size:11px;color:var(--gray5);margin-top:1px;}
+
+/* ══ Indent rows ══ */
+.indent-item-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;align-items:start;padding:10px;background:var(--gray1);border-radius:8px;margin-bottom:6px;}
+@media(max-width:640px){.indent-item-row{grid-template-columns:1fr 1fr;}}
+
+/* ══ Loader ══ */
+.loader{width:24px;height:24px;border:3px solid var(--t1);border-top-color:var(--t5);border-radius:50%;animation:spin .8s linear infinite;margin:14px auto;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══ Misc ══ */
+.hidden{display:none!important;}
+.section-sep{border:none;border-top:1px solid var(--gray1);margin:16px 0;}
+.empty-state{text-align:center;padding:32px 16px;color:var(--gray5);}
+.empty-state i{font-size:28px;margin-bottom:8px;opacity:.35;display:block;}
+.empty-state p{font-size:13px;font-weight:600;}
+
+/* ══ Voucher print styles ══ */
+@media print {
+  .no-print, .hd, .tabs-wrap, .kpi-grid, .btn { display: none !important; }
+  .voucher-print { display: block !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; }
+}
+.voucher-print { display: none; }
+
+/* ══ Activity stat boxes ══ */
+.stat-box{background:var(--t0);border:1px solid var(--t1);border-radius:8px;padding:12px;text-align:center;}
+.stat-box .sv{font-size:1.3rem;font-weight:800;color:var(--t7);}
+.stat-box .sl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray5);margin-top:2px;}
+.stat-box.warn-box{background:var(--warn-l);border-color:#fde68a;}
+.stat-box.warn-box .sv{color:var(--warn);}
+.stat-box.warn-box .sl{color:var(--warn);}
+
+/* ══ Chart containers ══ */
+.chart-wrap{position:relative;height:220px;}
+
+/* ══ Section top-bar ══ */
+.section-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+.section-bar input,.section-bar select{padding:8px 12px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:12px;color:var(--gray9);background:var(--white);}
+.section-bar input{flex:1;min-width:160px;}
+.section-bar input:focus,.section-bar select:focus{outline:none;border-color:var(--t5);}
+
+/* ══ Users ══ */
+.user-role-pill{padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;}
+.role-admin{background:#fef3c7;color:#92400e;}
+.role-supervisor{background:var(--t0);color:var(--t7);}
+.role-viewer{background:var(--gray1);color:var(--gray6);}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<header class="hd">
+  <div class="hd-brand">
+    <div class="logo-box"><i class="fa-solid fa-boxes-stacked"></i></div>
+    FM Inventory Manager
+    <span class="version">v4.0</span>
+  </div>
+  <div class="hd-right">
+    <div class="hd-user"><i class="fa-solid fa-user-shield"></i><span id="adminEmail">Admin</span></div>
+    <button class="btn-logout" id="btnLogout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ═══════ KPI ROW ═══════ -->
+  <div class="kpi-grid">
+    <div class="kpi k-total">
+      <div class="kpi-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+      <div class="kpi-body"><div class="kpi-val" id="kTotal">—</div><div class="kpi-lbl">Total Items</div></div>
+    </div>
+    <div class="kpi k-low">
+      <div class="kpi-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div class="kpi-body"><div class="kpi-val" id="kLow">—</div><div class="kpi-lbl">Low Stock</div></div>
+    </div>
+    <div class="kpi k-pend">
+      <div class="kpi-icon"><i class="fa-solid fa-clock"></i></div>
+      <div class="kpi-body"><div class="kpi-val" id="kPend">—</div><div class="kpi-lbl">Pending Requests</div></div>
+    </div>
+    <div class="kpi k-value">
+      <div class="kpi-icon"><i class="fa-solid fa-indian-rupee-sign"></i></div>
+      <div class="kpi-body"><div class="kpi-val" id="kValue">—</div><div class="kpi-lbl">Total Value (₹)</div></div>
+    </div>
+    <div class="kpi k-indent">
+      <div class="kpi-icon"><i class="fa-solid fa-file-invoice"></i></div>
+      <div class="kpi-body"><div class="kpi-val" id="kIndent">—</div><div class="kpi-lbl">Indents This Month</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════ TABS ═══════ -->
+  <div class="tabs-wrap">
+    <button class="tab active" data-tab="dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+    <button class="tab" data-tab="add"><i class="fa-solid fa-circle-plus"></i> Add / Receive</button>
+    <button class="tab" data-tab="manage"><i class="fa-solid fa-table-list"></i> Inventory</button>
+    <button class="tab" data-tab="indent"><i class="fa-solid fa-file-invoice"></i> Issue / Indent</button>
+    <button class="tab" data-tab="adjust"><i class="fa-solid fa-sliders"></i> Adjust Stock</button>
+    <button class="tab" data-tab="activity"><i class="fa-solid fa-chart-bar"></i> Requests &amp; Activity</button>
+    <button class="tab" data-tab="users"><i class="fa-solid fa-users"></i> Users</button>
+    <button class="tab" data-tab="categories"><i class="fa-solid fa-tags"></i> Categories</button>
+    <button class="tab" data-tab="suppliers"><i class="fa-solid fa-truck"></i> Suppliers</button>
+  </div>
+
+  <!-- ══════════════════════════════════
+       PANEL: DASHBOARD
+  ══════════════════════════════════════ -->
+  <section id="panel-dashboard">
+    <div class="g3" style="margin-bottom:14px;">
+
+      <!-- Stock by Dept chart -->
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-building"></i>Stock Value by Department</div>
+        <div class="chart-wrap"><canvas id="chartDept"></canvas></div>
+      </div>
+
+      <!-- Top consumed items -->
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-fire"></i>Top Consumed This Month</div>
+        <div class="chart-wrap"><canvas id="chartConsumed"></canvas></div>
+      </div>
+
+      <!-- Daily issue trend -->
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-chart-line"></i>Issue Trend — Last 30 Days</div>
+        <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
+      </div>
+
+    </div>
+
+    <div class="g2">
+      <!-- Low stock alert list -->
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-triangle-exclamation"></i>Low Stock Alerts
+          <span class="badge b-danger" id="dashLowCount">0</span>
+        </div>
+        <div id="dashLowList" style="max-height:280px;overflow-y:auto;"><div class="loader"></div></div>
+      </div>
+
+      <!-- Recent issues log -->
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-receipt"></i>Recent Issues (Today)</div>
+        <div id="dashRecentLog" style="max-height:280px;overflow-y:auto;"><div class="loader"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: ADD / RECEIVE
+  ══════════════════════════════════════ -->
+  <section id="panel-add" class="hidden">
+    <div style="display:grid;grid-template-columns:1fr 290px;gap:14px;">
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-circle-plus"></i><span id="formTitle">Add / Receive Material</span></div>
+        <div class="g2" style="gap:10px;">
+
+          <div class="field">
+            <label>Department <span style="color:var(--danger)">*</span></label>
+            <select id="inpDept">
+              <option value="">Select Department</option>
+              <option value="HK">Housekeeping (HK)</option>
+              <option value="Pantry">Pantry</option>
+              <option value="ME">Maintenance (ME)</option>
+              <option value="Security">Security</option>
+              <option value="EHS">EHS</option>
+              <option value="Stationery">Stationery / Admin</option>
+              <option value="IT">IT</option>
+            </select>
+            <div class="err-msg" id="e-dept">Department is required</div>
+          </div>
+
+          <div class="field">
+            <label>Category <span style="color:var(--danger)">*</span></label>
+            <div style="display:flex;gap:6px;">
+              <select id="inpCategory" style="flex:1;"><option value="">Select Category</option></select>
+              <button class="btn btn-ghost btn-sm" id="btnAddCategory" title="Manage Categories"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            <div class="err-msg" id="e-cat">Category is required</div>
+          </div>
+
+          <div class="field full">
+            <label>Material Name <span style="color:var(--danger)">*</span></label>
+            <input id="inpMaterial" placeholder="e.g. Taski R1 Multi-Surface Cleaner"/>
+            <div class="hint">Same name + dept + category → stock will be added to existing entry.</div>
+            <div class="err-msg" id="e-mat">Material name is required</div>
+          </div>
+
+          <div class="field">
+            <label>Container Size <span style="color:var(--danger)">*</span></label>
+            <input id="inpContainerSize" type="number" step="0.001" min="0" placeholder="e.g. 5"/>
+            <div class="err-msg" id="e-sz">Must be > 0</div>
+          </div>
+
+          <div class="field">
+            <label>Container Unit <span style="color:var(--danger)">*</span></label>
+            <select id="inpContainerUnit">
+              <optgroup label="── Liquid ──">
+                <option value="Litre">Litre (L)</option>
+                <option value="ml">Millilitre (ml)</option>
+              </optgroup>
+              <optgroup label="── Weight ──">
+                <option value="Kg">Kilogram (Kg)</option>
+                <option value="g">Gram (g)</option>
+              </optgroup>
+              <optgroup label="── Count ──">
+                <option value="Nos" selected>Number (Nos)</option>
+                <option value="Pcs">Pieces (Pcs)</option>
+                <option value="Pair">Pair</option>
+                <option value="Box">Box</option>
+                <option value="Pack">Pack</option>
+                <option value="Roll">Roll</option>
+                <option value="Bag">Bag</option>
+                <option value="Pouch">Pouch</option>
+                <option value="Tablet">Tablet</option>
+                <option value="Strip">Strip</option>
+                <option value="Ream">Ream</option>
+                <option value="Set">Set</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>No. of Containers <span style="color:var(--danger)">*</span></label>
+            <input id="inpContainerCount" type="number" step="0.01" min="0.01" value="1"/>
+            <div class="err-msg" id="e-cnt">Must be > 0</div>
+          </div>
+
+          <div class="field">
+            <label>MRP per Container (₹)</label>
+            <input id="inpMrp" type="number" step="0.01" min="0" placeholder="0.00"/>
+          </div>
+
+          <div class="field">
+            <label>Low-Stock Threshold</label>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input id="inpThreshold" type="number" step="1" min="0" placeholder="0" style="flex:1;"/>
+              <span id="thresholdUnit" style="font-size:12px;color:var(--gray5);white-space:nowrap;min-width:30px;"></span>
+            </div>
+            <div class="hint">Alert when stock drops below this</div>
+          </div>
+
+          <div class="field">
+            <label>Supplier</label>
+            <div style="display:flex;gap:6px;">
+              <select id="inpSupplier" style="flex:1;"></select>
+              <button class="btn btn-ghost btn-sm" id="btnAddSupplier" title="Manage Suppliers"><i class="fa-solid fa-plus"></i></button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Received Date</label>
+            <input id="inpDate" type="date"/>
+          </div>
+
+          <div class="field full">
+            <label>Remarks</label>
+            <textarea id="inpRemarks" placeholder="Optional notes…"></textarea>
+          </div>
+        </div>
+
+        <hr class="section-sep"/>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" id="btnSave"><i class="fa-solid fa-floppy-disk"></i> <span id="btnSaveTxt">Save / Receive</span></button>
+          <button class="btn btn-ghost" id="btnClear"><i class="fa-solid fa-eraser"></i> Clear</button>
+          <div id="lastAction" style="font-size:12px;color:var(--gray5);margin-left:8px;"></div>
+        </div>
+      </div>
+
+      <!-- Right sidebar -->
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-calculator"></i>Auto Totals</div>
+          <div style="font-size:11px;color:var(--gray5);margin-bottom:3px;">Total quantity (base units)</div>
+          <div id="displayTotalBase" style="font-size:1.1rem;font-weight:800;color:var(--t7);">—</div>
+          <div style="font-size:11px;color:var(--gray5);margin-top:10px;margin-bottom:3px;">Total MRP (₹)</div>
+          <div id="displayTotalMrp" style="font-size:1.1rem;font-weight:800;color:var(--ok);">—</div>
+        </div>
+
+        <div class="card" style="background:var(--t0);border:1px solid var(--t1);">
+          <div class="card-title" style="color:var(--t7);"><i class="fa-solid fa-circle-info"></i>Unit Guide</div>
+          <div style="font-size:12px;color:var(--t9);line-height:1.8;">
+            <b>Liquids</b> → stored in <b>ml</b><br>
+            <b>Weight</b> → stored in <b>g</b><br>
+            <b>Count</b> → stored as <b>count</b>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-bolt"></i>Quick Actions</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button class="btn btn-ghost" id="btnRefresh" style="justify-content:flex-start;font-size:12px;"><i class="fa-solid fa-rotate-right"></i>Refresh All</button>
+            <button class="btn btn-ghost" id="btnCalc" style="justify-content:flex-start;font-size:12px;"><i class="fa-solid fa-calculator"></i>Recalculate</button>
+            <button class="btn btn-ghost" onclick="exportCSV()" style="justify-content:flex-start;font-size:12px;"><i class="fa-solid fa-file-csv"></i>Export CSV</button>
+            <button class="btn btn-ghost" onclick="printInventory()" style="justify-content:flex-start;font-size:12px;"><i class="fa-solid fa-print"></i>Print Inventory</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: INVENTORY LIST
+  ══════════════════════════════════════ -->
+  <section id="panel-manage" class="hidden">
+    <div class="card">
+      <div class="section-bar">
+        <input id="searchBox" placeholder="Search material, category, supplier…"/>
+        <select id="filterDept">
+          <option value="">All Departments</option>
+          <option value="HK">Housekeeping</option>
+          <option value="Pantry">Pantry</option>
+          <option value="ME">Maintenance</option>
+          <option value="Security">Security</option>
+          <option value="EHS">EHS</option>
+          <option value="Stationery">Stationery</option>
+          <option value="IT">IT</option>
+        </select>
+        <select id="filterStock">
+          <option value="">All Stock Levels</option>
+          <option value="low">Low / Critical</option>
+          <option value="ok">Good Stock</option>
+        </select>
+        <select id="filterCategory">
+          <option value="">All Categories</option>
+        </select>
+        <button class="btn btn-primary btn-sm" id="btnReload"><i class="fa-solid fa-rotate-right"></i>Reload</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i class="fa-solid fa-file-csv"></i>CSV</button>
+      </div>
+
+      <!-- Low-stock alerts -->
+      <div id="alertBox" class="hidden" style="margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+          <i class="fa-solid fa-triangle-exclamation"></i> Low Stock Alerts
+          <span id="alertCount" class="badge b-danger"></span>
+        </div>
+        <div id="alertList"></div>
+      </div>
+
+      <div style="font-size:12px;color:var(--gray5);margin-bottom:6px;" id="invCountLabel"></div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Material</th>
+              <th>Category</th>
+              <th>Dept</th>
+              <th>Available</th>
+              <th>Containers</th>
+              <th>Container Size</th>
+              <th>MRP/unit</th>
+              <th>Inv. Value</th>
+              <th>Supplier</th>
+              <th>Last Received</th>
+              <th>Stock Level</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tblBody">
+            <tr><td colspan="13"><div class="loader"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: ISSUE / INDENT
+  ══════════════════════════════════════ -->
+  <section id="panel-indent" class="hidden">
+    <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:14px;">
+
+      <!-- Create indent form -->
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-file-pen"></i>Create Issue / Indent</div>
+
+        <div class="g2" style="gap:10px;margin-bottom:12px;">
+          <div class="field">
+            <label>Department <span style="color:var(--danger)">*</span></label>
+            <select id="iDept">
+              <option value="">Select Department</option>
+              <option value="HK">Housekeeping (HK)</option>
+              <option value="Pantry">Pantry</option>
+              <option value="ME">Maintenance (ME)</option>
+              <option value="Security">Security</option>
+              <option value="EHS">EHS</option>
+              <option value="Stationery">Stationery / Admin</option>
+              <option value="IT">IT</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Requested By <span style="color:var(--danger)">*</span></label>
+            <input id="iRequestedBy" placeholder="Supervisor / User name"/>
+          </div>
+          <div class="field">
+            <label>Issued Date</label>
+            <input id="iDate" type="date"/>
+          </div>
+          <div class="field">
+            <label>Purpose / Remarks</label>
+            <input id="iPurpose" placeholder="e.g. Monthly housekeeping stock"/>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;color:var(--gray7);">Indent Items</div>
+          <button class="btn btn-ghost btn-sm" onclick="addIndentRow()"><i class="fa-solid fa-plus"></i> Add Item</button>
+        </div>
+
+        <div id="indentItemsContainer">
+          <!-- rows added dynamically -->
+        </div>
+
+        <hr class="section-sep"/>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-primary" id="btnSaveIndent"><i class="fa-solid fa-file-circle-check"></i> Save & Issue</button>
+          <button class="btn btn-ghost" onclick="clearIndentForm()"><i class="fa-solid fa-eraser"></i> Clear</button>
+          <div style="font-size:11px;color:var(--gray5);margin-left:8px;" id="indentLastSaved"></div>
+        </div>
+      </div>
+
+      <!-- Recent indents -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-clock-rotate-left"></i>Recent Indents</div>
+          <button class="btn btn-ghost btn-sm" id="btnReloadIndents"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+        <div id="indentList" style="max-height:500px;overflow-y:auto;"><div class="loader"></div></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: STOCK ADJUSTMENT
+  ══════════════════════════════════════ -->
+  <section id="panel-adjust" class="hidden">
+    <div class="g2">
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-sliders"></i>Manual Stock Adjustment</div>
+        <p style="font-size:12px;color:var(--gray5);margin-bottom:14px;background:var(--warn-l);padding:10px;border-radius:8px;border:1px solid #fde68a;">
+          <i class="fa-solid fa-triangle-exclamation" style="color:var(--warn);"></i>
+          Use only for physical count corrections, breakage, expiry, or write-offs. All adjustments are logged with reason.
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="field">
+            <label>Select Material <span style="color:var(--danger)">*</span></label>
+            <select id="adjMaterial">
+              <option value="">Loading inventory…</option>
+            </select>
+          </div>
+          <div id="adjCurrentStock" style="font-size:12px;color:var(--gray5);background:var(--gray1);padding:8px 12px;border-radius:8px;display:none;"></div>
+          <div class="g2" style="gap:10px;">
+            <div class="field">
+              <label>Adjustment Type <span style="color:var(--danger)">*</span></label>
+              <select id="adjType">
+                <option value="deduct">Deduct (Write-off)</option>
+                <option value="add">Add (Physical surplus)</option>
+                <option value="set">Set Exact Qty (Full recount)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Quantity (base units) <span style="color:var(--danger)">*</span></label>
+              <input id="adjQty" type="number" step="0.01" min="0" placeholder="0"/>
+            </div>
+          </div>
+          <div class="field">
+            <label>Reason <span style="color:var(--danger)">*</span></label>
+            <select id="adjReason">
+              <option value="">Select reason…</option>
+              <option value="Physical count correction">Physical count correction</option>
+              <option value="Damage / Breakage">Damage / Breakage</option>
+              <option value="Expired / Unusable">Expired / Unusable</option>
+              <option value="Theft / Loss">Theft / Loss</option>
+              <option value="Spillage / Wastage">Spillage / Wastage</option>
+              <option value="Issued without logging">Issued without logging</option>
+              <option value="Surplus found in store">Surplus found in store</option>
+              <option value="Other">Other (see notes)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Notes</label>
+            <textarea id="adjNotes" rows="2" placeholder="Additional details…"></textarea>
+          </div>
+        </div>
+
+        <hr class="section-sep"/>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" id="btnSaveAdj"><i class="fa-solid fa-floppy-disk"></i> Save Adjustment</button>
+          <button class="btn btn-ghost" onclick="clearAdjForm()"><i class="fa-solid fa-eraser"></i> Clear</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-book-open"></i>Adjustment Log</div>
+          <button class="btn btn-ghost btn-sm" id="btnReloadAdj"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+        <div id="adjLog" style="max-height:480px;overflow-y:auto;"><div class="loader"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: ACTIVITY / REQUESTS
+  ══════════════════════════════════════ -->
+  <section id="panel-activity" class="hidden">
+    <div class="g2" style="margin-bottom:14px;">
+
+      <!-- Material requests -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+          <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-file-circle-plus"></i>Material Requests</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="actPeriod" style="padding:6px 10px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:12px;">
+              <option value="month">This Month</option>
+              <option value="lastmonth">Last Month</option>
+              <option value="week">This Week</option>
+              <option value="today">Today</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="btnReloadReq"><i class="fa-solid fa-rotate-right"></i></button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+          <div class="stat-box"><div class="sv" id="rPending">0</div><div class="sl">Pending</div></div>
+          <div class="stat-box" style="background:var(--ok-l);border-color:#bbf7d0;"><div class="sv" id="rApproved" style="color:var(--ok);">0</div><div class="sl" style="color:var(--ok);">Approved</div></div>
+          <div class="stat-box" style="background:var(--danger-l);border-color:#fca5a5;"><div class="sv" id="rRejected" style="color:var(--danger);">0</div><div class="sl" style="color:var(--danger);">Rejected</div></div>
+        </div>
+
+        <div id="reqList" style="max-height:380px;overflow-y:auto;"><div class="loader"></div></div>
+      </div>
+
+      <!-- Issue summary -->
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-receipt"></i>Issue Activity Summary</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div class="stat-box"><div class="sv" id="issueCountToday">—</div><div class="sl">Today</div></div>
+          <div class="stat-box"><div class="sv" id="issueCountWeek">—</div><div class="sl">This Week</div></div>
+          <div class="stat-box"><div class="sv" id="issueCountMonth">—</div><div class="sl">This Month</div></div>
+          <div class="stat-box warn-box"><div class="sv" id="issueValueMonth">—</div><div class="sl">Value Issued (₹)</div></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:var(--gray5);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Recent Issues</div>
+        <div id="issueLogList" style="max-height:230px;overflow-y:auto;"><div class="loader"></div></div>
+      </div>
+
+    </div>
+
+    <!-- Pending approvals -->
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i>Pending Requests — Action Required
+        <span class="badge b-warn" id="pendingCountBadge"></span>
+      </div>
+      <div id="pendingApprovalList"><div class="loader"></div></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: USERS
+  ══════════════════════════════════════ -->
+  <section id="panel-users" class="hidden">
+    <div class="g2">
+
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-user-plus"></i><span id="userFormTitle">Add User</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="field"><label>Full Name <span style="color:var(--danger)">*</span></label><input id="uName" placeholder="e.g. Ravi Kumar"/></div>
+          <div class="field"><label>Email / Login ID <span style="color:var(--danger)">*</span></label><input id="uEmail" type="email" placeholder="ravi@jll.com"/></div>
+          <div class="field">
+            <label>Role <span style="color:var(--danger)">*</span></label>
+            <select id="uRole">
+              <option value="supervisor">Supervisor</option>
+              <option value="admin">Admin</option>
+              <option value="viewer">Viewer (Read-only)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Department</label>
+            <select id="uDept">
+              <option value="">All Departments</option>
+              <option value="HK">Housekeeping</option>
+              <option value="Pantry">Pantry</option>
+              <option value="ME">Maintenance</option>
+              <option value="Security">Security</option>
+              <option value="EHS">EHS</option>
+              <option value="Stationery">Stationery</option>
+            </select>
+          </div>
+          <div class="field"><label>Phone</label><input id="uPhone" type="tel" placeholder="+91 XXXXX XXXXX"/></div>
+          <div class="field">
+            <label>Status</label>
+            <select id="uStatus">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+          <div class="field"><label>Notes</label><textarea id="uNotes" rows="2" placeholder="Optional remarks…"></textarea></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn btn-primary" id="btnSaveUser"><i class="fa-solid fa-floppy-disk"></i>Save</button>
+          <button class="btn btn-ghost" id="btnClearUser"><i class="fa-solid fa-eraser"></i>Clear</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-title" style="margin-bottom:0;"><i class="fa-solid fa-users"></i>All Users</div>
+          <button class="btn btn-ghost btn-sm" id="btnReloadUsers"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Dept</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="usersBody"><tr><td colspan="6"><div class="loader"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: CATEGORIES
+  ══════════════════════════════════════ -->
+  <section id="panel-categories" class="hidden">
+    <div class="g2">
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-tag"></i><span id="catFormTitle">Add Category</span></div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>Department <span style="color:var(--danger)">*</span></label>
+          <select id="catDept">
+            <option value="">Select Department</option>
+            <option value="HK">Housekeeping (HK)</option>
+            <option value="Pantry">Pantry</option>
+            <option value="ME">Maintenance (ME)</option>
+            <option value="Security">Security</option>
+            <option value="EHS">EHS</option>
+            <option value="Stationery">Stationery / Admin</option>
+            <option value="IT">IT</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:12px;">
+          <label>Category Name <span style="color:var(--danger)">*</span></label>
+          <input id="catName" placeholder="e.g. Cleaning Chemicals"/>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" id="btnSaveCat"><i class="fa-solid fa-floppy-disk"></i>Save</button>
+          <button class="btn btn-ghost" id="btnClearCat"><i class="fa-solid fa-eraser"></i>Clear</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-list"></i>All Categories</div>
+        <div style="max-height:400px;overflow-y:auto;">
+          <table>
+            <thead><tr><th>Dept</th><th>Category Name</th><th>Actions</th></tr></thead>
+            <tbody id="catBody"><tr><td colspan="3"><div class="loader"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       PANEL: SUPPLIERS
+  ══════════════════════════════════════ -->
+  <section id="panel-suppliers" class="hidden">
+    <div class="g2">
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-truck"></i><span id="supFormTitle">Add Supplier</span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="field"><label>Supplier Name <span style="color:var(--danger)">*</span></label><input id="sName" placeholder="Company / vendor name"/></div>
+          <div class="field"><label>Phone</label><input id="sPhone" placeholder="+91 XXXXX XXXXX" type="tel"/></div>
+          <div class="field"><label>Email</label><input id="sEmail" placeholder="contact@supplier.com" type="email"/></div>
+          <div class="field"><label>Address</label><textarea id="sAddress" placeholder="Full address" rows="2"></textarea></div>
+          <div class="field"><label>Contact Person</label><input id="sContact" placeholder="Name of account manager"/></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <button class="btn btn-primary" id="btnSaveSup"><i class="fa-solid fa-floppy-disk"></i>Save</button>
+          <button class="btn btn-ghost" id="btnClearSup"><i class="fa-solid fa-eraser"></i>Clear</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><i class="fa-solid fa-list"></i>All Suppliers</div>
+        <div style="max-height:400px;overflow-y:auto;">
+          <table>
+            <thead><tr><th>Name</th><th>Phone</th><th>Contact</th><th>Email</th><th>Actions</th></tr></thead>
+            <tbody id="supBody"><tr><td colspan="5"><div class="loader"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ════════════ TOAST ════════════ -->
+<div id="toast"></div>
+
+<!-- ════════════ CONFIRM MODAL ════════════ -->
+<div id="confirmModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-icon danger" id="confirmIcon"><i class="fa-solid fa-trash"></i></div>
+    <div class="modal-title" id="confirmTitle">Confirm Delete</div>
+    <div class="modal-body" id="confirmBody">Are you sure? This cannot be undone.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+      <button class="btn btn-danger" id="confirmOK">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ SLIDE PANEL (Item History) ════════════ -->
+<div id="historyPanel" class="slide-modal hidden">
+  <div class="slide-backdrop" onclick="closeHistory()"></div>
+  <div class="slide-panel">
+    <div class="slide-header">
+      <div>
+        <div style="font-size:15px;font-weight:800;" id="historyTitle">Stock History</div>
+        <div style="font-size:11px;opacity:.75;" id="historySubtitle">All movements</div>
+      </div>
+      <button class="slide-close" onclick="closeHistory()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="slide-body" id="historyBody"><div class="loader"></div></div>
+  </div>
+</div>
+
+<!-- ════════════ INDENT VOUCHER PRINT ════════════ -->
+<div id="voucherPrint" class="voucher-print" style="display:none;padding:20px;font-family:serif;">
+  <!-- filled dynamically before print -->
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script>
+/* ════════════════════════════════════════════
+   FIREBASE INIT
+════════════════════════════════════════════ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCS98TwN_CqGLuS1a600P76La7I7t6kJqU",
+  authDomain: "facilitymanagement-47470.firebaseapp.com",
+  projectId: "facilitymanagement-47470",
+  storageBucket: "facilitymanagement-47470.firebasestorage.app",
+  messagingSenderId: "638809761503",
+  appId: "1:638809761503:web:1a15443eeeee2414aaab6a"
+};
+if (!window.firebaseAppsInitialized) { firebase.initializeApp(firebaseConfig); window.firebaseAppsInitialized = true; }
+const db   = firebase.firestore();
+const auth = firebase.auth();
+
+/* ════════════════════════════════════════════
+   AUTH GUARD
+════════════════════════════════════════════ */
+auth.onAuthStateChanged(user => {
+  if (!user) { location.href = 'index.html'; return; }
+  document.getElementById('adminEmail').textContent = user.email;
+  init();
+});
+
+/* ════════════════════════════════════════════
+   UTILITIES
+════════════════════════════════════════════ */
+function esc(s){ if(!s && s!==0) return ''; return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  const cls = type==='error'?'t-err':type==='info'?'t-info':type==='warn'?'t-warn':'t-ok';
+  const icon = type==='error'?'<i class="fa-solid fa-circle-xmark"></i>':type==='info'?'<i class="fa-solid fa-circle-info"></i>':type==='warn'?'<i class="fa-solid fa-triangle-exclamation"></i>':'<i class="fa-solid fa-circle-check"></i>';
+  el.innerHTML = `<div class="toast-inner ${cls}">${icon} ${msg}</div>`;
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.innerHTML=''; }, 3500);
+}
+
+/* Custom confirm modal (replaces browser confirm()) */
+function confirmModal(title, body, okLabel='Confirm', type='danger') {
+  return new Promise(resolve => {
+    const modal = document.getElementById('confirmModal');
+    const icon  = document.getElementById('confirmIcon');
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmBody').textContent  = body;
+    const okBtn = document.getElementById('confirmOK');
+    okBtn.textContent = okLabel;
+    okBtn.className = `btn ${type==='danger'?'btn-danger':type==='warn'?'btn-warn':'btn-primary'}`;
+    icon.className = `modal-icon ${type}`;
+    modal.classList.remove('hidden');
+    const cleanup = (val) => {
+      modal.classList.add('hidden');
+      document.getElementById('confirmOK').onclick = null;
+      document.getElementById('confirmCancel').onclick = null;
+      resolve(val);
+    };
+    okBtn.onclick = () => cleanup(true);
+    document.getElementById('confirmCancel').onclick = () => cleanup(false);
+  });
+}
+
+/* Debounce helper */
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+/* ════════════════════════════════════════════
+   UNIT SYSTEM
+════════════════════════════════════════════ */
+const UNIT_TYPE = {
+  'Litre':'liquid','ml':'liquid',
+  'Kg':'weight','g':'weight',
+  'Nos':'count','Pcs':'count','Pair':'count','Box':'count',
+  'Pack':'count','Roll':'count','Bag':'count','Pouch':'count',
+  'Tablet':'count','Strip':'count','Ream':'count','Set':'count'
+};
+function getUnitType(u){ return UNIT_TYPE[u]||'count'; }
+function toBaseQty(amount, unit){
+  if(!unit||amount==null) return amount;
+  if(unit==='Litre') return amount*1000;
+  if(unit==='Kg')    return amount*1000;
+  return amount;
+}
+function fromBaseToDisplay(baseVal, containerUnit){
+  if(baseVal==null) return '—';
+  const t = getUnitType(containerUnit);
+  if(t==='liquid') return baseVal>=1000?`${(baseVal/1000).toFixed(2)} L`:`${Math.round(baseVal)} ml`;
+  if(t==='weight') return baseVal>=1000?`${(baseVal/1000).toFixed(2)} Kg`:`${Math.round(baseVal)} g`;
+  return `${Math.round(baseVal*100)/100} ${containerUnit||'Nos'}`;
+}
+function formatAvailable(baseVal, containerUnit){
+  if(baseVal==null) return '—';
+  const t = getUnitType(containerUnit);
+  if(t==='liquid'){ const ml=Math.round(baseVal); return `${(ml/1000).toFixed(2)} L (${ml} ml)`; }
+  if(t==='weight'){ const g=Math.round(baseVal); return g>=1000?`${(g/1000).toFixed(2)} Kg (${g} g)`:`${g} g`; }
+  return `${Math.round(baseVal*100)/100} ${containerUnit}`;
+}
+function containersRemaining(baseVal, containerSize, containerUnit){
+  if(!containerSize||containerSize<=0) return '—';
+  const perBase = toBaseQty(containerSize, containerUnit);
+  if(!perBase) return '—';
+  const t = getUnitType(containerUnit);
+  if(t==='count') return `${Math.round(baseVal)} ${containerUnit}`;
+  return (baseVal/perBase).toFixed(2);
+}
+
+/* ════════════════════════════════════════════
+   TABS
+════════════════════════════════════════════ */
+const panelMap = {
+  dashboard:'panel-dashboard', add:'panel-add', manage:'panel-manage',
+  indent:'panel-indent', adjust:'panel-adjust', activity:'panel-activity',
+  users:'panel-users', categories:'panel-categories', suppliers:'panel-suppliers'
+};
+function showTab(tab) {
+  Object.values(panelMap).forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(panelMap[tab]).classList.remove('hidden');
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  if(tab==='manage')     loadInventory();
+  if(tab==='activity')   loadActivity();
+  if(tab==='categories') loadCategories();
+  if(tab==='suppliers')  loadSuppliers();
+  if(tab==='dashboard')  loadDashboard();
+  if(tab==='indent')     { loadIndentList(); loadIndentInventorySelect(); }
+  if(tab==='adjust')     { loadAdjustMaterialSelect(); loadAdjLog(); }
+  if(tab==='users')      loadUsers();
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+/* ════════════════════════════════════════════
+   DOM REFS
+════════════════════════════════════════════ */
+const inpDept=document.getElementById('inpDept'),
+      inpCategory=document.getElementById('inpCategory'),
+      inpMaterial=document.getElementById('inpMaterial'),
+      inpContainerSize=document.getElementById('inpContainerSize'),
+      inpContainerUnit=document.getElementById('inpContainerUnit'),
+      inpContainerCount=document.getElementById('inpContainerCount'),
+      inpMrp=document.getElementById('inpMrp'),
+      inpThreshold=document.getElementById('inpThreshold'),
+      inpSupplier=document.getElementById('inpSupplier'),
+      inpRemarks=document.getElementById('inpRemarks'),
+      inpDate=document.getElementById('inpDate'),
+      displayTotalBase=document.getElementById('displayTotalBase'),
+      displayTotalMrp=document.getElementById('displayTotalMrp'),
+      btnSave=document.getElementById('btnSave'),
+      btnSaveTxt=document.getElementById('btnSaveTxt'),
+      lastAction=document.getElementById('lastAction'),
+      catName=document.getElementById('catName'),
+      catDept=document.getElementById('catDept'),
+      catBody=document.getElementById('catBody'),
+      supBody=document.getElementById('supBody'),
+      tblBody=document.getElementById('tblBody'),
+      searchBox=document.getElementById('searchBox'),
+      filterDept=document.getElementById('filterDept');
+
+let editingCategoryId=null, editingSupplierId=null, currentEditId=null, editingUserId=null;
+let inventoryAll=[];
+
+/* ════════════════════════════════════════════
+   FORM VALIDATION
+════════════════════════════════════════════ */
+function setFieldErr(fieldId, errId, show) {
+  const el = document.getElementById(fieldId);
+  const em = document.getElementById(errId);
+  if(!el||!em) return;
+  if(show){ el.classList.add('err'); em.classList.add('show'); }
+  else    { el.classList.remove('err'); em.classList.remove('show'); }
+}
+function clearAllErrs() {
+  document.querySelectorAll('.err').forEach(el => el.classList.remove('err'));
+  document.querySelectorAll('.err-msg').forEach(el => el.classList.remove('show'));
+}
+function validateAddForm() {
+  let ok = true;
+  const checks = [
+    [!inpDept.value, 'inpDept','e-dept'],
+    [!inpCategory.value,'inpCategory','e-cat'],
+    [!inpMaterial.value.trim(),'inpMaterial','e-mat'],
+    [!(parseFloat(inpContainerSize.value)>0),'inpContainerSize','e-sz'],
+    [!(parseFloat(inpContainerCount.value)>0),'inpContainerCount','e-cnt'],
+  ];
+  checks.forEach(([fail,f,e])=>{ setFieldErr(f,e,fail); if(fail) ok=false; });
+  return ok;
+}
+
+/* ════════════════════════════════════════════
+   RECALC TOTALS
+════════════════════════════════════════════ */
+function recalcTotals(){
+  const sz=parseFloat(inpContainerSize.value)||0;
+  const unit=inpContainerUnit.value;
+  const cnt=parseFloat(inpContainerCount.value)||0;
+  const base=toBaseQty(sz,unit)*cnt;
+  displayTotalBase.textContent=formatAvailable(base,unit);
+  displayTotalMrp.textContent='₹'+((parseFloat(inpMrp.value)||0)*cnt).toFixed(2);
+  document.getElementById('thresholdUnit').textContent=unit?`(${unit})`:'';
+}
+[inpContainerSize,inpContainerCount,inpMrp].forEach(el=>el.addEventListener('input',recalcTotals));
+inpContainerUnit.addEventListener('change',recalcTotals);
+
+/* ════════════════════════════════════════════
+   CATEGORIES
+════════════════════════════════════════════ */
+async function loadCategories(selectedDept=null){
+  inpCategory.innerHTML='<option value="">Loading…</option>';
+  catBody.innerHTML='<tr><td colspan="3"><div class="loader"></div></td></tr>';
+  try {
+    const snap=await db.collection('categories').orderBy('department').orderBy('categoryName').get();
+    catBody.innerHTML='';
+    const opts=[];
+    snap.forEach(doc=>{
+      const d=doc.data();
+      catBody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td class="bold"><span class="badge b-teal">${esc(d.department||'—')}</span></td>
+          <td>${esc(d.categoryName)}</td>
+          <td><div style="display:flex;gap:4px;">
+            <button class="btn btn-warn btn-sm" onclick="editCategory('${doc.id}')"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${doc.id}','${esc(d.categoryName)}')"><i class="fa-solid fa-trash"></i></button>
+          </div></td>
+        </tr>`);
+      opts.push({id:doc.id,name:d.categoryName,dept:d.department||''});
+    });
+    if(snap.empty) catBody.innerHTML='<tr><td colspan="3" class="empty-state">No categories yet</td></tr>';
+    inpCategory.innerHTML='<option value="">Select Category</option>';
+    opts.filter(o=>!selectedDept||o.dept===selectedDept)
+        .forEach(o=>inpCategory.insertAdjacentHTML('beforeend',`<option value="${esc(o.name)}">${esc(o.name)}</option>`));
+
+    // also populate filter category dropdown
+    const fc=document.getElementById('filterCategory');
+    if(fc){
+      fc.innerHTML='<option value="">All Categories</option>';
+      opts.forEach(o=>fc.insertAdjacentHTML('beforeend',`<option value="${esc(o.name)}">${esc(o.name)}</option>`));
+    }
+  } catch(e){ console.error(e); inpCategory.innerHTML='<option value="">Failed to load</option>'; toast('Could not load categories','error'); }
+}
+async function saveCategory(){
+  const name=catName.value.trim(), dept=catDept.value;
+  if(!name||!dept){ toast('Department and category name required','error'); return; }
+  const btn=document.getElementById('btnSaveCat'); btn.disabled=true;
+  try {
+    if(editingCategoryId){
+      await db.collection('categories').doc(editingCategoryId).update({categoryName:name,department:dept,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      toast('Category updated'); editingCategoryId=null;
+      document.getElementById('catFormTitle').textContent='Add Category';
+    } else {
+      const q=await db.collection('categories').where('categoryName','==',name).where('department','==',dept).limit(1).get();
+      if(!q.empty){toast('Category already exists','error');return;}
+      await db.collection('categories').add({categoryName:name,department:dept,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      toast('Category added');
+    }
+    catName.value=''; catDept.value='';
+    loadCategories(inpDept.value||null);
+  } catch(e){ console.error(e); toast('Save failed','error'); }
+  finally{ btn.disabled=false; }
+}
+async function editCategory(id){
+  const doc=await db.collection('categories').doc(id).get(); if(!doc.exists) return;
+  const d=doc.data(); catName.value=d.categoryName||''; catDept.value=d.department||'';
+  editingCategoryId=id;
+  document.getElementById('catFormTitle').textContent='Edit Category';
+  showTab('categories');
+}
+async function deleteCategory(id, name='this category'){
+  const ok=await confirmModal('Delete Category',`Delete "${name}"? Materials using it won't be affected.`,'Delete','danger');
+  if(!ok) return;
+  try{ await db.collection('categories').doc(id).delete(); toast('Deleted'); loadCategories(); }catch(e){ toast('Delete failed','error'); }
+}
+
+/* ════════════════════════════════════════════
+   SUPPLIERS
+════════════════════════════════════════════ */
+async function loadSuppliers(){
+  inpSupplier.innerHTML='<option value="">Loading…</option>';
+  supBody.innerHTML='<tr><td colspan="5"><div class="loader"></div></td></tr>';
+  try {
+    const snap=await db.collection('suppliers').orderBy('supplierName').get();
+    inpSupplier.innerHTML='<option value="">Select Supplier (optional)</option>';
+    supBody.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      inpSupplier.insertAdjacentHTML('beforeend',`<option value="${doc.id}">${esc(d.supplierName)}</option>`);
+      supBody.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td class="bold">${esc(d.supplierName)}</td>
+          <td>${esc(d.phone||'—')}</td>
+          <td>${esc(d.contactPerson||'—')}</td>
+          <td>${esc(d.email||'—')}</td>
+          <td><div style="display:flex;gap:4px;">
+            <button class="btn btn-warn btn-sm" onclick="editSupplier('${doc.id}')"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSupplier('${doc.id}','${esc(d.supplierName)}')"><i class="fa-solid fa-trash"></i></button>
+          </div></td>
+        </tr>`);
+    });
+    if(snap.empty) supBody.innerHTML='<tr><td colspan="5" class="empty-state">No suppliers yet</td></tr>';
+  } catch(e){ console.error(e); toast('Could not load suppliers','error'); }
+}
+async function saveSupplier(){
+  const name=document.getElementById('sName').value.trim();
+  if(!name){toast('Supplier name required','error');return;}
+  const data={
+    supplierName:name, phone:document.getElementById('sPhone').value.trim(),
+    email:document.getElementById('sEmail').value.trim(), address:document.getElementById('sAddress').value.trim(),
+    contactPerson:document.getElementById('sContact').value.trim(),
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    if(editingSupplierId){
+      await db.collection('suppliers').doc(editingSupplierId).update(data);
+      toast('Supplier updated'); editingSupplierId=null;
+      document.getElementById('supFormTitle').textContent='Add Supplier';
+    } else {
+      await db.collection('suppliers').add({...data,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      toast('Supplier added');
+    }
+    ['sName','sPhone','sEmail','sAddress','sContact'].forEach(id=>document.getElementById(id).value='');
+    loadSuppliers();
+  } catch(e){ console.error(e); toast('Save failed','error'); }
+}
+async function editSupplier(id){
+  const doc=await db.collection('suppliers').doc(id).get(); if(!doc.exists) return;
+  const d=doc.data();
+  document.getElementById('sName').value=d.supplierName||'';
+  document.getElementById('sPhone').value=d.phone||'';
+  document.getElementById('sEmail').value=d.email||'';
+  document.getElementById('sAddress').value=d.address||'';
+  document.getElementById('sContact').value=d.contactPerson||'';
+  editingSupplierId=id;
+  document.getElementById('supFormTitle').textContent='Edit Supplier';
+  showTab('suppliers');
+}
+async function deleteSupplier(id,name='this supplier'){
+  const ok=await confirmModal('Delete Supplier',`Delete "${name}"?`,'Delete','danger');
+  if(!ok) return;
+  try{ await db.collection('suppliers').doc(id).delete(); toast('Deleted'); loadSuppliers(); }catch(e){ toast('Delete failed','error'); }
+}
+
+/* ════════════════════════════════════════════
+   SAVE / RECEIVE MATERIAL
+════════════════════════════════════════════ */
+async function saveMaterial(){
+  clearAllErrs();
+  if(!validateAddForm()) return;
+
+  const department=inpDept.value, category=inpCategory.value,
+        materialName=inpMaterial.value.trim(),
+        containerSize=parseFloat(inpContainerSize.value)||0,
+        containerUnit=inpContainerUnit.value,
+        containerCount=parseFloat(inpContainerCount.value)||0,
+        mrp=parseFloat(inpMrp.value)||0,
+        threshold=parseFloat(inpThreshold.value)||0,
+        supplierId=inpSupplier.value||'',
+        remarks=inpRemarks.value.trim(),
+        receivedDate=inpDate.value||new Date().toISOString().split('T')[0];
+
+  const perContainerBase=toBaseQty(containerSize,containerUnit);
+  const addBase=Math.round(perContainerBase*containerCount*10000)/10000;
+  const addValue=mrp*containerCount;
+
+  btnSave.disabled=true;
+  try {
+    const q=await db.collection('inventory')
+      .where('materialName','==',materialName)
+      .where('department','==',department)
+      .where('category','==',category).limit(1).get();
+    const supplierName=supplierId?await getSupplierName(supplierId):'';
+
+    if(!q.empty){
+      const docRef=q.docs[0].ref;
+      await db.runTransaction(async tx=>{
+        const snap=await tx.get(docRef); const cur=snap.data();
+        const newReceived=Math.round(((cur.receivedQty||0)+addBase)*10000)/10000;
+        const newAvailable=Math.round(((cur.availableQty??cur.receivedQty??0)+addBase)*10000)/10000;
+        tx.update(docRef,{
+          receivedQty:newReceived, availableQty:newAvailable, totalQty:newReceived,
+          inventoryValue:(cur.inventoryValue||0)+addValue,
+          mrp:mrp||cur.mrp||0, threshold:threshold||cur.threshold||0,
+          supplierId:supplierId||cur.supplierId||'', supplierName:supplierName||cur.supplierName||'',
+          remarks:remarks||cur.remarks||'', lastReceivedDate:receivedDate,
+          containerUnit, containerSize,
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+        });
+      });
+      toast(`Stock updated: +${fromBaseToDisplay(addBase,containerUnit)} added`);
+      lastAction.textContent=`Updated ${materialName} (+${fromBaseToDisplay(addBase,containerUnit)})`;
+    } else {
+      await db.collection('inventory').add({
+        materialName,category,department,containerSize,containerUnit,containerCount,
+        receivedQty:addBase, availableQty:addBase, totalQty:addBase,
+        inventoryValue:addValue, mrp, threshold, supplierId, supplierName,
+        remarks, receivedDate, lastReceivedDate:receivedDate,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast(`New material added: ${materialName}`);
+      lastAction.textContent=`Added ${materialName} (${department}) — ${fromBaseToDisplay(addBase,containerUnit)}`;
+    }
+    clearAddForm(); loadInventory(); updateKPIs();
+  } catch(e){ console.error(e); toast('Save failed: '+e.message,'error'); }
+  finally{ btnSave.disabled=false; }
+}
+
+async function getSupplierName(id){
+  if(!id) return '';
+  try{ const d=await db.collection('suppliers').doc(id).get(); return d.exists?d.data().supplierName:''; }catch(e){ return ''; }
+}
+
+/* ════════════════════════════════════════════
+   EDIT MATERIAL
+════════════════════════════════════════════ */
+async function openEdit(id){
+  try {
+    const doc=await db.collection('inventory').doc(id).get();
+    if(!doc.exists){toast('Item not found','error');return;}
+    const d=doc.data();
+    showTab('add');
+    inpDept.value=d.department||'';
+    await loadCategories(d.department||'');
+    inpCategory.value=d.category||'';
+    inpMaterial.value=d.materialName||'';
+    inpContainerSize.value=d.containerSize||'';
+    inpContainerUnit.value=d.containerUnit||'Nos';
+    inpContainerCount.value='0';
+    inpMrp.value=d.mrp||'';
+    inpThreshold.value=d.threshold||'';
+    inpSupplier.value=d.supplierId||'';
+    inpRemarks.value=d.remarks||'';
+    inpDate.value=d.lastReceivedDate||d.receivedDate||new Date().toISOString().split('T')[0];
+    recalcTotals(); currentEditId=id;
+    btnSaveTxt.textContent='Update Metadata';
+    document.getElementById('formTitle').textContent=`Editing: ${d.materialName}`;
+    btnSave.onclick=async function(){
+      clearAllErrs();
+      if(!inpDept.value||!inpCategory.value||!inpMaterial.value.trim()){ toast('Fill required fields','error'); return; }
+      btnSave.disabled=true;
+      try{
+        await db.collection('inventory').doc(id).update({
+          department:inpDept.value, category:inpCategory.value,
+          materialName:inpMaterial.value.trim(),
+          containerSize:parseFloat(inpContainerSize.value)||0,
+          containerUnit:inpContainerUnit.value,
+          mrp:parseFloat(inpMrp.value)||0,
+          threshold:parseFloat(inpThreshold.value)||0,
+          supplierId:inpSupplier.value||'',
+          supplierName:inpSupplier.options[inpSupplier.selectedIndex]?.text||'',
+          remarks:inpRemarks.value.trim(),
+          updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+        });
+        toast('Item updated'); clearAddForm(); loadInventory(); updateKPIs();
+      }catch(e){toast('Update failed','error');}
+      finally{btnSave.disabled=false;}
+    };
+    window.scrollTo({top:0,behavior:'smooth'});
+  } catch(e){ console.error(e); toast('Failed to open edit','error'); }
+}
+
+/* ════════════════════════════════════════════
+   INLINE RECEIVE MORE
+════════════════════════════════════════════ */
+function showReceivePanel(id){
+  document.querySelectorAll('.receive-panel').forEach(el=>el.style.display='none');
+  const panel=document.getElementById(`rp-${id}`);
+  if(panel) panel.style.display='';
+}
+async function submitReceive(id,unit){
+  const cntEl=document.getElementById(`rc-cnt-${id}`);
+  const cnt=parseFloat(cntEl?.value||0);
+  if(!cnt||cnt<=0){toast('Enter a valid quantity','error');return;}
+  try{
+    await db.runTransaction(async tx=>{
+      const ref=db.collection('inventory').doc(id);
+      const snap=await tx.get(ref); if(!snap.exists) throw new Error('Not found');
+      const d=snap.data();
+      const perBase=toBaseQty(d.containerSize||0,d.containerUnit||unit);
+      const addBase=perBase*cnt;
+      const newRecv=Math.round(((d.receivedQty||0)+addBase)*10000)/10000;
+      const newAvail=Math.round(((d.availableQty??d.receivedQty??0)+addBase)*10000)/10000;
+      tx.update(ref,{
+        receivedQty:newRecv, availableQty:newAvail, totalQty:newRecv,
+        inventoryValue:(d.inventoryValue||0)+(d.mrp||0)*cnt,
+        lastReceivedDate:new Date().toISOString().split('T')[0],
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    toast('Stock received');
+    if(cntEl) cntEl.value='';
+    const panel=document.getElementById(`rp-${id}`);
+    if(panel) panel.style.display='none';
+    loadInventory(); updateKPIs();
+  }catch(e){ console.error(e); toast('Receive failed: '+e.message,'error'); }
+}
+
+/* ════════════════════════════════════════════
+   DELETE ITEM
+════════════════════════════════════════════ */
+async function deleteItem(id,name='this item'){
+  const ok=await confirmModal('Delete Inventory Item',`Permanently delete "${name}"? All associated data will remain in logs but the item will be removed from inventory.`,'Delete','danger');
+  if(!ok) return;
+  try{
+    await db.collection('inventory').doc(id).delete();
+    toast('Item deleted'); loadInventory(); updateKPIs();
+  }catch(e){ toast('Delete failed','error'); }
+}
+
+/* ════════════════════════════════════════════
+   LOAD & RENDER INVENTORY
+════════════════════════════════════════════ */
+async function loadInventory(){
+  tblBody.innerHTML='<tr><td colspan="13"><div class="loader"></div></td></tr>';
+  try{
+    const snap=await db.collection('inventory').orderBy('materialName').get();
+    inventoryAll=snap.docs.map(d=>({_id:d.id,...d.data()}));
+    renderInventory(); updateKPIs();
+  }catch(e){ console.error(e); tblBody.innerHTML=`<tr><td colspan="13" style="color:var(--danger);padding:12px;">Error: ${e.message}</td></tr>`; }
+}
+
+function renderInventory(){
+  const q=(searchBox.value||'').toLowerCase();
+  const fDept=filterDept.value;
+  const fStock=document.getElementById('filterStock').value;
+  const fCat=document.getElementById('filterCategory').value;
+
+  const filtered=inventoryAll.filter(r=>{
+    if(fDept&&r.department!==fDept) return false;
+    if(fCat&&r.category!==fCat) return false;
+    if(q&&!(r.materialName||'').toLowerCase().includes(q)&&!(r.category||'').toLowerCase().includes(q)&&!(r.supplierName||'').toLowerCase().includes(q)) return false;
+    if(fStock==='low'){
+      const avail=r.availableQty??r.receivedQty??0;
+      const pct=r.totalQty>0?(avail/r.totalQty)*100:100;
+      if(pct>=30&&avail>=(r.threshold||0)) return false;
+    }
+    if(fStock==='ok'){
+      const avail=r.availableQty??r.receivedQty??0;
+      const pct=r.totalQty>0?(avail/r.totalQty)*100:100;
+      if(pct<30) return false;
+    }
+    return true;
+  });
+
+  // Low-stock alerts
+  const lowItems=inventoryAll.filter(r=>{
+    const avail=r.availableQty??r.receivedQty??0;
+    const pct=r.totalQty>0?(avail/r.totalQty)*100:0;
+    return pct<20||(r.threshold>0&&avail<r.threshold);
+  });
+  const alertBox=document.getElementById('alertBox');
+  if(lowItems.length){
+    alertBox.classList.remove('hidden');
+    document.getElementById('alertCount').textContent=lowItems.length;
+    document.getElementById('alertList').innerHTML=lowItems.slice(0,5).map(r=>{
+      const avail=r.availableQty??r.receivedQty??0;
+      const pct=r.totalQty>0?Math.round((avail/r.totalQty)*100):0;
+      return `<div class="alert-row">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span class="al-txt">${esc(r.materialName)} <span style="font-weight:400">(${esc(r.department)})</span></span>
+        <span class="al-qty">${formatAvailable(avail,r.containerUnit)} — ${pct}%</span>
+      </div>`;
+    }).join('')+(lowItems.length>5?`<div style="text-align:center;font-size:11px;color:var(--danger);padding:4px;">+${lowItems.length-5} more low-stock items</div>`:'');
+  } else { alertBox.classList.add('hidden'); }
+
+  document.getElementById('invCountLabel').textContent=`Showing ${filtered.length} of ${inventoryAll.length} items`;
+
+  if(!filtered.length){
+    tblBody.innerHTML='<tr><td colspan="13"><div class="empty-state"><i class="fa-solid fa-box-open"></i><p>No items found</p></div></td></tr>';
+    return;
+  }
+
+  tblBody.innerHTML='';
+  filtered.forEach((r,i)=>{
+    const avail=r.availableQty??r.receivedQty??0;
+    const total=r.totalQty??r.receivedQty??avail;
+    const pct=total>0?Math.min(100,Math.round((avail/total)*100)):0;
+    const barCls=pct>40?'ok':pct>15?'low':'crit';
+    const badgeCls=pct>40?'b-ok':pct>15?'b-warn':'b-danger';
+    const badgeTxt=pct>40?'Good':pct>15?'Low':'Critical';
+    const invValue=r.inventoryValue?`₹${r.inventoryValue.toFixed(2)}`:(r.mrp&&avail?`₹${(r.mrp*(avail/toBaseQty(r.containerSize||1,r.containerUnit||'Nos'))).toFixed(2)}`:'—');
+
+    tblBody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td style="color:var(--gray4);font-size:11px;">${i+1}</td>
+        <td class="bold" style="cursor:pointer;color:var(--t7);" onclick="showHistory('${r._id}','${esc(r.materialName)}')" title="View stock history">${esc(r.materialName)}</td>
+        <td>${esc(r.category)}</td>
+        <td><span class="badge b-teal" style="font-size:10px;">${esc(r.department)}</span></td>
+        <td class="bold">${formatAvailable(avail,r.containerUnit)}</td>
+        <td style="text-align:center;">${containersRemaining(avail,r.containerSize,r.containerUnit)}</td>
+        <td style="font-size:11px;">${esc(r.containerSize||'')} ${esc(r.containerUnit||'')}</td>
+        <td>${r.mrp?'₹'+r.mrp:'—'}</td>
+        <td style="font-weight:700;color:var(--ok);">${invValue}</td>
+        <td style="font-size:11px;">${esc(r.supplierName||'—')}</td>
+        <td style="font-size:11px;">${esc(r.lastReceivedDate||r.receivedDate||'—')}</td>
+        <td>
+          <span class="badge ${badgeCls}">${badgeTxt} ${pct}%</span>
+          <div class="sbar-wrap"><div class="sbar ${barCls}" style="width:${pct}%"></div></div>
+        </td>
+        <td>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <div style="display:flex;gap:3px;">
+              <button class="btn btn-warn btn-sm" onclick="openEdit('${r._id}')" title="Edit"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn btn-blue btn-sm" onclick="showReceivePanel('${r._id}')" title="Receive more"><i class="fa-solid fa-plus"></i></button>
+              <button class="btn btn-ghost btn-sm" onclick="showHistory('${r._id}','${esc(r.materialName)}')" title="History"><i class="fa-solid fa-clock-rotate-left"></i></button>
+              <button class="btn btn-danger btn-sm" onclick="deleteItem('${r._id}','${esc(r.materialName)}')" title="Delete"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <div class="receive-panel" id="rp-${r._id}">
+              <div style="font-size:11px;font-weight:700;color:var(--t7);margin-bottom:5px;">Receive (no. of containers)</div>
+              <div style="display:flex;gap:5px;align-items:center;">
+                <input id="rc-cnt-${r._id}" type="number" min="0.01" step="0.01" placeholder="Count" style="width:75px;padding:5px 8px;border:1.5px solid var(--gray3);border-radius:7px;font-family:var(--font);font-size:12px;"/>
+                <span style="font-size:11px;color:var(--gray5);">× ${esc(r.containerSize)} ${esc(r.containerUnit)}</span>
+                <button class="btn btn-primary btn-sm" onclick="submitReceive('${r._id}','${esc(r.containerUnit)}')"><i class="fa-solid fa-check"></i></button>
+                <button class="btn btn-ghost btn-sm" onclick="document.getElementById('rp-${r._id}').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+          </div>
+        </td>
+      </tr>`);
+  });
+}
+
+/* ════════════════════════════════════════════
+   ITEM HISTORY (slide panel)
+════════════════════════════════════════════ */
+async function showHistory(id, name){
+  document.getElementById('historyTitle').textContent=name;
+  document.getElementById('historySubtitle').textContent='Stock movements history';
+  document.getElementById('historyPanel').classList.remove('hidden');
+  const body=document.getElementById('historyBody');
+  body.innerHTML='<div class="loader"></div>';
+  try{
+    const [issuesSnap, adjSnap]=await Promise.all([
+      db.collection('issuedItems').where('inventoryId','==',id).orderBy('timestamp','desc').limit(30).get(),
+      db.collection('stockAdjustments').where('inventoryId','==',id).orderBy('createdAt','desc').limit(20).get()
+    ]);
+    const events=[];
+    issuesSnap.forEach(doc=>{
+      const d=doc.data();
+      events.push({type:'issue',date:d.timestamp?.toDate()||new Date(0),data:d});
+    });
+    adjSnap.forEach(doc=>{
+      const d=doc.data();
+      events.push({type:'adjust',date:d.createdAt?.toDate()||new Date(0),data:d});
+    });
+    events.sort((a,b)=>b.date-a.date);
+
+    if(!events.length){
+      body.innerHTML='<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>No movement records found</p></div>';
+      return;
+    }
+    body.innerHTML=events.map(ev=>{
+      const dt=ev.date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      const tm=ev.date.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+      if(ev.type==='issue'){
+        const d=ev.data;
+        return `<div style="display:flex;gap:10px;padding:10px;border-bottom:1px solid var(--gray1);align-items:flex-start;">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--danger-l);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;"><i class="fa-solid fa-arrow-up-right-from-square"></i></div>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:12px;color:var(--gray9);">Issued — <span style="color:var(--danger);">−${esc(fromBaseToDisplay(d.deductedQtyInInvUnit,d.inventoryUnit))}</span></div>
+            <div style="font-size:11px;color:var(--gray5);margin-top:2px;">${esc(d.department||'—')} · ${esc(d.supervisor||'—')} · ${esc(d.purpose||'')}</div>
+            <div style="font-size:11px;color:var(--gray4);">${dt} ${tm}</div>
+          </div>
+        </div>`;
+      } else {
+        const d=ev.data;
+        const typeIcon=d.adjType==='add'?'fa-arrow-down':'fa-arrow-up';
+        const typeColor=d.adjType==='add'?'var(--ok)':'var(--warn)';
+        return `<div style="display:flex;gap:10px;padding:10px;border-bottom:1px solid var(--gray1);align-items:flex-start;">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--warn-l);color:var(--warn);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;"><i class="fa-solid fa-sliders"></i></div>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:12px;color:var(--gray9);">Adjustment — <span style="color:${typeColor};">${d.adjType==='add'?'+':d.adjType==='deduct'?'−':'SET '}${d.qty||''}</span></div>
+            <div style="font-size:11px;color:var(--gray5);margin-top:2px;">${esc(d.reason||'—')} · ${esc(d.notes||'')}</div>
+            <div style="font-size:11px;color:var(--gray4);">${dt} ${tm} · by ${esc(d.by||'Admin')}</div>
+          </div>
+        </div>`;
+      }
+    }).join('');
+  }catch(e){ body.innerHTML=`<div style="color:var(--danger);padding:16px;">${e.message}</div>`; }
+}
+function closeHistory(){ document.getElementById('historyPanel').classList.add('hidden'); }
+
+/* ════════════════════════════════════════════
+   KPIs
+════════════════════════════════════════════ */
+async function updateKPIs(){
+  try{
+    const items=inventoryAll.length?inventoryAll:(await db.collection('inventory').get()).docs.map(d=>d.data());
+    const total=items.length;
+    const lowCnt=items.filter(r=>{
+      const avail=r.availableQty??r.receivedQty??0;
+      const pct=r.totalQty>0?(avail/r.totalQty)*100:0;
+      return pct<20||(r.threshold>0&&avail<r.threshold);
+    }).length;
+    const totalVal=items.reduce((s,r)=>s+(r.inventoryValue||0),0);
+    document.getElementById('kTotal').textContent=total;
+    document.getElementById('kLow').textContent=lowCnt;
+    document.getElementById('kValue').textContent=totalVal>0?'₹'+totalVal.toFixed(0):'—';
+
+    const pendSnap=await db.collection('materialRequests').where('status','==','Pending').get();
+    document.getElementById('kPend').textContent=pendSnap.size;
+    document.getElementById('pendingCountBadge').textContent=pendSnap.size||'';
+
+    const now=new Date(), ms=new Date(now.getFullYear(),now.getMonth(),1);
+    const indentSnap=await db.collection('indents')
+      .where('createdAt','>=',firebase.firestore.Timestamp.fromDate(ms)).get();
+    document.getElementById('kIndent').textContent=indentSnap.size||0;
+  }catch(e){ console.error(e); }
+}
+
+/* ════════════════════════════════════════════
+   CLEAR ADD FORM
+════════════════════════════════════════════ */
+function clearAddForm(){
+  inpDept.value=''; inpCategory.innerHTML='<option value="">Select Category</option>';
+  inpMaterial.value=''; inpContainerSize.value='';
+  inpContainerUnit.value='Nos'; inpContainerCount.value='1';
+  inpMrp.value=''; inpThreshold.value='';
+  inpSupplier.value=''; inpRemarks.value='';
+  inpDate.value=new Date().toISOString().split('T')[0];
+  displayTotalBase.textContent='—'; displayTotalMrp.textContent='—';
+  btnSaveTxt.textContent='Save / Receive';
+  document.getElementById('formTitle').textContent='Add / Receive Material';
+  btnSave.onclick=saveMaterial; currentEditId=null;
+  lastAction.textContent=''; clearAllErrs();
+}
+
+/* ════════════════════════════════════════════
+   ACTIVITY
+════════════════════════════════════════════ */
+function getPeriodRange(period){
+  const now=new Date();
+  let start, end=new Date(now); end.setHours(23,59,59,999);
+  if(period==='today'){ start=new Date(now); start.setHours(0,0,0,0); }
+  else if(period==='week'){
+    const day=now.getDay(),diff=day===0?-6:1-day;
+    start=new Date(now); start.setDate(now.getDate()+diff); start.setHours(0,0,0,0);
+    end=new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+  } else if(period==='lastmonth'){
+    start=new Date(now.getFullYear(),now.getMonth()-1,1);
+    end=new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999);
+  } else {
+    start=new Date(now.getFullYear(),now.getMonth(),1);
+    end=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);
+  }
+  return{start,end};
+}
+async function loadActivity(){ await Promise.all([loadRequests(),loadIssueStats()]); loadPendingApprovals(); }
+async function loadRequests(){
+  const el=document.getElementById('reqList');
+  const period=document.getElementById('actPeriod').value;
+  el.innerHTML='<div class="loader"></div>';
+  try{
+    const{start,end}=getPeriodRange(period);
+    const snap=await db.collection('materialRequests')
+      .where('createdAt','>=',firebase.firestore.Timestamp.fromDate(start))
+      .where('createdAt','<=',firebase.firestore.Timestamp.fromDate(end))
+      .orderBy('createdAt','desc').get();
+    let pending=0,approved=0,rejected=0;
+    el.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      if(d.status==='Pending')  pending++;
+      if(d.status==='Approved') approved++;
+      if(d.status==='Rejected') rejected++;
+      const badge=d.status==='Approved'?'<span class="badge b-ok">✓ Approved</span>'
+                 :d.status==='Pending' ?'<span class="badge b-warn">⏳ Pending</span>'
+                 :d.status==='Rejected'?'<span class="badge b-danger">✕ Rejected</span>'
+                 :'<span class="badge b-gray">—</span>';
+      const createdAt=d.createdAt?d.createdAt.toDate().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+      el.insertAdjacentHTML('beforeend',`
+        <div class="req-row">
+          <div class="rr-icon"><i class="fa-solid fa-file-circle-plus"></i></div>
+          <div class="rr-body">
+            <div class="rr-name">${esc(d.materialName)}</div>
+            <div class="rr-meta">${esc(d.department)} · ${esc(String(d.requestedQty))} ${esc(d.requestedUnit)} · By ${esc(d.requestedBy||'—')} · ${createdAt}</div>
+          </div>
+          ${badge}
+        </div>`);
+    });
+    if(snap.empty) el.innerHTML='<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>No requests for this period</p></div>';
+    document.getElementById('rPending').textContent=pending;
+    document.getElementById('rApproved').textContent=approved;
+    document.getElementById('rRejected').textContent=rejected;
+  }catch(e){ el.innerHTML=`<div style="color:var(--danger);padding:12px;">${e.message}</div>`; }
+}
+async function loadIssueStats(){
+  try{
+    const now=new Date();
+    const todayStart=new Date(now); todayStart.setHours(0,0,0,0);
+    const wd=now.getDay(),diff=wd===0?-6:1-wd;
+    const weekStart=new Date(now); weekStart.setDate(now.getDate()+diff); weekStart.setHours(0,0,0,0);
+    const monthStart=new Date(now.getFullYear(),now.getMonth(),1);
+    const snap=await db.collection('issuedItems')
+      .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(monthStart))
+      .orderBy('timestamp','desc').get();
+    let todayCnt=0,weekCnt=0,monthCnt=0,monthVal=0;
+    const logEl=document.getElementById('issueLogList'); logEl.innerHTML=''; let logCount=0;
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const dt=d.timestamp?d.timestamp.toDate():null; if(!dt) return;
+      monthCnt++;
+      if(dt>=weekStart) weekCnt++;
+      if(dt>=todayStart) todayCnt++;
+      const issuedVal=(d.issuedQty||0)*(d.mrpPerUnit||0);
+      monthVal+=issuedVal;
+      if(logCount<10){
+        const dtStr=dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+        logEl.insertAdjacentHTML('beforeend',`
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray1);">
+            <div style="min-width:44px;text-align:center;background:var(--gray1);border-radius:7px;padding:3px 5px;font-size:10px;font-weight:700;color:var(--gray5);">${dtStr}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:12px;font-weight:700;color:var(--gray9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.materialName)}</div>
+              <div style="font-size:11px;color:var(--gray5);">${esc(d.department)} · ${esc(d.supervisor||'—')}</div>
+            </div>
+            <div style="font-size:12px;font-weight:800;color:var(--danger);flex-shrink:0;">−${esc(fromBaseToDisplay(d.deductedQtyInInvUnit,d.inventoryUnit))}</div>
+          </div>`);
+        logCount++;
+      }
+    });
+    if(!logCount) logEl.innerHTML='<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>No issues this month</p></div>';
+    document.getElementById('issueCountToday').textContent=todayCnt;
+    document.getElementById('issueCountWeek').textContent=weekCnt;
+    document.getElementById('issueCountMonth').textContent=monthCnt;
+    document.getElementById('issueValueMonth').textContent=monthVal>0?'₹'+monthVal.toFixed(2):'—';
+  }catch(e){ console.error(e); }
+}
+async function loadPendingApprovals(){
+  const el=document.getElementById('pendingApprovalList');
+  el.innerHTML='<div class="loader"></div>';
+  try{
+    const snap=await db.collection('materialRequests').where('status','==','Pending').orderBy('createdAt','desc').get();
+    if(snap.empty){
+      el.innerHTML='<div style="text-align:center;padding:20px;color:var(--ok);font-weight:700;"><i class="fa-solid fa-circle-check"></i> No pending requests</div>';
+      return;
+    }
+    el.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const createdAt=d.createdAt?d.createdAt.toDate().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+      el.insertAdjacentHTML('beforeend',`
+        <div class="req-row" style="border:1px solid #fde68a;background:#fffbeb;margin-bottom:6px;">
+          <div class="rr-icon" style="background:var(--warn-l);color:var(--warn);"><i class="fa-solid fa-clock"></i></div>
+          <div class="rr-body">
+            <div class="rr-name">${esc(d.materialName)}</div>
+            <div class="rr-meta">${esc(d.department)} · ${esc(String(d.requestedQty))} ${esc(d.requestedUnit)} · Month: ${esc(d.monthFor||'—')} · By ${esc(d.requestedBy||'—')} · ${createdAt}${d.remarks?`<br><em>${esc(d.remarks)}</em>`:''}</div>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0;">
+            <button class="btn btn-ok btn-sm" onclick="updateRequestStatus('${doc.id}','Approved')"><i class="fa-solid fa-check"></i> Approve</button>
+            <button class="btn btn-danger btn-sm" onclick="updateRequestStatus('${doc.id}','Rejected')"><i class="fa-solid fa-xmark"></i> Reject</button>
+          </div>
+        </div>`);
+    });
+  }catch(e){ el.innerHTML=`<div style="color:var(--danger);padding:12px;">${e.message}</div>`; }
+}
+async function updateRequestStatus(id,status){
+  try{
+    await db.collection('materialRequests').doc(id).update({status,reviewedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    toast(`Request ${status.toLowerCase()}`);
+    updateKPIs(); loadActivity();
+  }catch(e){ toast('Update failed','error'); }
+}
+
+/* ════════════════════════════════════════════
+   DASHBOARD CHARTS
+════════════════════════════════════════════ */
+let chartDeptInst=null, chartConsumedInst=null, chartTrendInst=null;
+
+async function loadDashboard(){
+  await Promise.all([loadDashLow(), loadDashRecent(), renderDeptChart(), renderConsumedChart(), renderTrendChart()]);
+}
+
+async function renderDeptChart(){
+  const ctx=document.getElementById('chartDept').getContext('2d');
+  if(chartDeptInst){chartDeptInst.destroy(); chartDeptInst=null;}
+  const items=inventoryAll.length?inventoryAll:(await db.collection('inventory').get()).docs.map(d=>d.data());
+  const byDept={};
+  items.forEach(r=>{
+    const dept=r.department||'Other';
+    byDept[dept]=(byDept[dept]||0)+(r.inventoryValue||0);
+  });
+  const labels=Object.keys(byDept).sort((a,b)=>byDept[b]-byDept[a]);
+  const values=labels.map(l=>parseFloat(byDept[l].toFixed(2)));
+  const colors=['#0d9488','#14b8a6','#0d6b6b','#1d4ed8','#7c3aed','#d97706','#dc2626','#16a34a'];
+  chartDeptInst=new Chart(ctx,{
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}} } }
+  });
+}
+
+async function renderConsumedChart(){
+  const ctx=document.getElementById('chartConsumed').getContext('2d');
+  if(chartConsumedInst){chartConsumedInst.destroy(); chartConsumedInst=null;}
+  const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+  try{
+    const snap=await db.collection('issuedItems')
+      .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(monthStart))
+      .orderBy('timestamp','desc').get();
+    const byItem={};
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const name=d.materialName||'Unknown';
+      byItem[name]=(byItem[name]||0)+(d.deductedQtyInInvUnit||0);
+    });
+    const sorted=Object.entries(byItem).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    if(!sorted.length){
+      document.getElementById('chartConsumed').getContext('2d').canvas.parentNode.innerHTML='<div class="empty-state" style="height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;"><i class="fa-solid fa-chart-bar"></i><p>No issue data this month</p></div>';
+      return;
+    }
+    chartConsumedInst=new Chart(ctx,{
+      type:'bar',
+      data:{
+        labels:sorted.map(([n])=>n.length>14?n.slice(0,13)+'…':n),
+        datasets:[{
+          label:'Qty issued',
+          data:sorted.map(([,v])=>Math.round(v*100)/100),
+          backgroundColor:'rgba(13,148,136,0.8)',
+          borderRadius:5, borderSkipped:false
+        }]
+      },
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:10}}},
+                y:{grid:{display:false},ticks:{font:{size:10}}}}
+      }
+    });
+  }catch(e){ console.error(e); }
+}
+
+async function renderTrendChart(){
+  const ctx=document.getElementById('chartTrend').getContext('2d');
+  if(chartTrendInst){chartTrendInst.destroy(); chartTrendInst=null;}
+  const days=30;
+  const start=new Date(); start.setDate(start.getDate()-days+1); start.setHours(0,0,0,0);
+  try{
+    const snap=await db.collection('issuedItems')
+      .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(start))
+      .orderBy('timestamp','asc').get();
+    const byDay={};
+    for(let i=0;i<days;i++){
+      const d=new Date(start); d.setDate(start.getDate()+i);
+      byDay[d.toISOString().split('T')[0]]=0;
+    }
+    snap.forEach(doc=>{
+      const d=doc.data();
+      if(d.timestamp){
+        const key=d.timestamp.toDate().toISOString().split('T')[0];
+        if(byDay[key]!==undefined) byDay[key]++;
+      }
+    });
+    const labels=Object.keys(byDay).map(k=>{const d=new Date(k); return `${d.getDate()}/${d.getMonth()+1}`;});
+    const values=Object.values(byDay);
+    chartTrendInst=new Chart(ctx,{
+      type:'line',
+      data:{
+        labels,
+        datasets:[{
+          label:'Issues',
+          data:values,
+          fill:true,
+          backgroundColor:'rgba(13,148,136,0.1)',
+          borderColor:'#0d9488',
+          borderWidth:2,
+          pointRadius:3,
+          pointBackgroundColor:'#0d9488',
+          tension:0.4
+        }]
+      },
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{x:{ticks:{maxTicksLimit:8,font:{size:9}},grid:{color:'rgba(0,0,0,.04)'}},
+                y:{ticks:{stepSize:1,font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}}}
+      }
+    });
+  }catch(e){ console.error(e); }
+}
+
+async function loadDashLow(){
+  const el=document.getElementById('dashLowList');
+  const items=inventoryAll.length?inventoryAll:(await db.collection('inventory').get()).docs.map(d=>({...d.data(),_id:d.id}));
+  const low=items.filter(r=>{
+    const avail=r.availableQty??r.receivedQty??0;
+    const pct=r.totalQty>0?(avail/r.totalQty)*100:0;
+    return pct<20||(r.threshold>0&&avail<r.threshold);
+  });
+  document.getElementById('dashLowCount').textContent=low.length||'0';
+  if(!low.length){ el.innerHTML='<div class="empty-state"><i class="fa-solid fa-circle-check"></i><p>All stock levels are healthy</p></div>'; return; }
+  el.innerHTML=low.slice(0,10).map(r=>{
+    const avail=r.availableQty??r.receivedQty??0;
+    const pct=r.totalQty>0?Math.round((avail/r.totalQty)*100):0;
+    const cls=pct<10?'crit':'low';
+    return `<div class="alert-row">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <div style="flex:1;">
+        <div style="font-size:12px;font-weight:700;color:var(--danger-d);">${esc(r.materialName)}</div>
+        <div style="font-size:11px;color:var(--danger);">${esc(r.department)} — ${formatAvailable(avail,r.containerUnit)}</div>
+      </div>
+      <div>
+        <div class="sbar-wrap" style="width:50px;margin:0;"><div class="sbar ${cls}" style="width:${Math.max(pct,3)}%"></div></div>
+        <div style="font-size:10px;text-align:center;color:var(--danger);font-weight:700;">${pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadDashRecent(){
+  const el=document.getElementById('dashRecentLog');
+  const todayStart=new Date(); todayStart.setHours(0,0,0,0);
+  try{
+    const snap=await db.collection('issuedItems')
+      .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(todayStart))
+      .orderBy('timestamp','desc').get();
+    if(snap.empty){ el.innerHTML='<div class="empty-state"><i class="fa-solid fa-inbox"></i><p>No issues logged today</p></div>'; return; }
+    el.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const tm=d.timestamp?d.timestamp.toDate().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—';
+      el.insertAdjacentHTML('beforeend',`
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--gray1);">
+          <div style="font-size:10px;font-weight:700;color:var(--gray5);min-width:40px;">${tm}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(d.materialName)}</div>
+            <div style="font-size:11px;color:var(--gray5);">${esc(d.department)} · ${esc(d.supervisor||'—')}</div>
+          </div>
+          <span style="font-size:12px;font-weight:800;color:var(--danger);">−${esc(fromBaseToDisplay(d.deductedQtyInInvUnit,d.inventoryUnit))}</span>
+        </div>`);
+    });
+  }catch(e){ el.innerHTML=`<div style="color:var(--danger);padding:12px;">${e.message}</div>`; }
+}
+
+/* ════════════════════════════════════════════
+   INDENT / ISSUE VOUCHER
+════════════════════════════════════════════ */
+let indentRowCount=0;
+let indentInventoryCache=[];
+
+async function loadIndentInventorySelect(){
+  if(inventoryAll.length){ indentInventoryCache=inventoryAll; return; }
+  const snap=await db.collection('inventory').orderBy('materialName').get();
+  indentInventoryCache=snap.docs.map(d=>({_id:d.id,...d.data()}));
+}
+
+function addIndentRow(){
+  indentRowCount++;
+  const id=`ir-${indentRowCount}`;
+  const opts=indentInventoryCache.map(r=>`<option value="${esc(r._id)}" data-unit="${esc(r.containerUnit)}" data-avail="${r.availableQty??0}">${esc(r.materialName)} (${esc(r.department)})</option>`).join('');
+  const row=document.createElement('div');
+  row.className='indent-item-row'; row.id=id;
+  row.innerHTML=`
+    <div class="field" style="margin:0;">
+      <label style="font-size:10px;">Material</label>
+      <select id="${id}-mat" onchange="updateIndentRowUnit('${id}')" style="font-size:12px;">
+        <option value="">Select material…</option>${opts}
+      </select>
+    </div>
+    <div class="field" style="margin:0;">
+      <label style="font-size:10px;">Qty</label>
+      <input id="${id}-qty" type="number" step="0.01" min="0.01" placeholder="0" style="font-size:12px;"/>
+    </div>
+    <div class="field" style="margin:0;">
+      <label style="font-size:10px;">Unit</label>
+      <input id="${id}-unit" placeholder="Unit" readonly style="font-size:12px;background:var(--gray1);"/>
+    </div>
+    <div class="field" style="margin:0;">
+      <label style="font-size:10px;">Purpose</label>
+      <input id="${id}-purpose" placeholder="e.g. Daily cleaning" style="font-size:12px;"/>
+    </div>
+    <button class="btn btn-danger btn-sm" onclick="document.getElementById('${id}').remove()" style="margin-top:22px;"><i class="fa-solid fa-xmark"></i></button>`;
+  document.getElementById('indentItemsContainer').appendChild(row);
+}
+
+function updateIndentRowUnit(rowId){
+  const sel=document.getElementById(`${rowId}-mat`);
+  const opt=sel.options[sel.selectedIndex];
+  document.getElementById(`${rowId}-unit`).value=opt?.dataset?.unit||'';
+}
+
+function clearIndentForm(){
+  document.getElementById('iDept').value='';
+  document.getElementById('iRequestedBy').value='';
+  document.getElementById('iDate').value=new Date().toISOString().split('T')[0];
+  document.getElementById('iPurpose').value='';
+  document.getElementById('indentItemsContainer').innerHTML='';
+  document.getElementById('indentLastSaved').textContent='';
+  indentRowCount=0;
+}
+
+function generateIndentNo(){
+  const now=new Date();
+  const ymd=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  const rand=Math.floor(Math.random()*900)+100;
+  return `IND-${ymd}-${rand}`;
+}
+
+async function saveIndent(){
+  const dept=document.getElementById('iDept').value;
+  const requestedBy=document.getElementById('iRequestedBy').value.trim();
+  const issuedDate=document.getElementById('iDate').value||new Date().toISOString().split('T')[0];
+  const purpose=document.getElementById('iPurpose').value.trim();
+
+  if(!dept||!requestedBy){ toast('Department and requested-by are required','error'); return; }
+
+  // Collect rows
+  const rows=document.querySelectorAll('#indentItemsContainer .indent-item-row');
+  if(!rows.length){ toast('Add at least one item','error'); return; }
+
+  const items=[];
+  let hasError=false;
+  rows.forEach(row=>{
+    const id=row.id;
+    const matId=document.getElementById(`${id}-mat`)?.value;
+    const qty=parseFloat(document.getElementById(`${id}-qty`)?.value||0);
+    const unit=document.getElementById(`${id}-unit`)?.value;
+    const purpose2=document.getElementById(`${id}-purpose`)?.value||'';
+    if(!matId||!qty||qty<=0){ hasError=true; return; }
+    const inv=indentInventoryCache.find(r=>r._id===matId);
+    if(inv) items.push({inventoryId:matId, materialName:inv.materialName, qty, unit, purpose:purpose2, containerUnit:inv.containerUnit, containerSize:inv.containerSize});
+  });
+  if(hasError||!items.length){ toast('Fill in all item rows with valid quantities','error'); return; }
+
+  const indentNo=generateIndentNo();
+  const btn=document.getElementById('btnSaveIndent'); btn.disabled=true;
+
+  try{
+    // Deduct stock for each item
+    const batch=db.batch();
+    const indentItems=[];
+    for(const item of items){
+      const invRef=db.collection('inventory').doc(item.inventoryId);
+      const invSnap=await invRef.get(); if(!invSnap.exists) continue;
+      const invData=invSnap.data();
+      const avail=invData.availableQty??invData.receivedQty??0;
+      const deductBase=toBaseQty(item.qty, item.unit);
+      if(deductBase>avail){ toast(`Insufficient stock: ${item.materialName}. Available: ${formatAvailable(avail,invData.containerUnit)}`,'error'); btn.disabled=false; return; }
+      batch.update(invRef,{
+        availableQty:Math.round((avail-deductBase)*10000)/10000,
+        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      // Write to issuedItems log
+      const issueRef=db.collection('issuedItems').doc();
+      batch.set(issueRef,{
+        inventoryId:item.inventoryId, materialName:item.materialName,
+        department:dept, supervisor:requestedBy, purpose:purpose||item.purpose,
+        deductedQtyInInvUnit:deductBase, inventoryUnit:invData.containerUnit,
+        issuedQty:item.qty, issuedUnit:item.unit,
+        mrpPerUnit:invData.mrp||0, indentNo,
+        timestamp:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      indentItems.push({...item, deductedBase:deductBase});
+    }
+
+    // Save indent document
+    const indentRef=db.collection('indents').doc();
+    batch.set(indentRef,{
+      indentNo, department:dept, requestedBy, issuedDate, purpose,
+      items:indentItems.map(i=>({inventoryId:i.inventoryId,materialName:i.materialName,qty:i.qty,unit:i.unit,purpose:i.purpose})),
+      status:'Issued', createdBy:auth.currentUser?.email||'Admin',
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await batch.commit();
+    toast(`Indent ${indentNo} saved & issued`);
+    document.getElementById('indentLastSaved').textContent=`Last: ${indentNo}`;
+    clearIndentForm(); loadInventory(); updateKPIs(); loadIndentList();
+    printIndentVoucher(indentNo, dept, requestedBy, issuedDate, purpose, indentItems);
+  }catch(e){ console.error(e); toast('Save failed: '+e.message,'error'); }
+  finally{ btn.disabled=false; }
+}
+
+async function loadIndentList(){
+  const el=document.getElementById('indentList'); el.innerHTML='<div class="loader"></div>';
+  try{
+    const snap=await db.collection('indents').orderBy('createdAt','desc').limit(20).get();
+    if(snap.empty){ el.innerHTML='<div class="empty-state"><i class="fa-solid fa-file-invoice"></i><p>No indents yet</p></div>'; return; }
+    el.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const dt=d.createdAt?d.createdAt.toDate().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+      el.insertAdjacentHTML('beforeend',`
+        <div style="padding:10px 12px;background:var(--gray1);border-radius:8px;margin-bottom:6px;display:flex;align-items:flex-start;gap:10px;">
+          <div style="min-width:36px;height:36px;border-radius:9px;background:var(--purple-l);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:13px;"><i class="fa-solid fa-file-invoice"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:800;font-size:12px;color:var(--gray9);">${esc(d.indentNo)}</div>
+            <div style="font-size:11px;color:var(--gray5);">${esc(d.department)} · By ${esc(d.requestedBy)} · ${dt}</div>
+            <div style="font-size:11px;color:var(--gray5);">${(d.items||[]).length} item(s) · ${esc(d.purpose||'')}</div>
+          </div>
+          <span class="badge b-ok" style="flex-shrink:0;">Issued</span>
+        </div>`);
+    });
+  }catch(e){ el.innerHTML=`<div style="color:var(--danger);padding:12px;">${e.message}</div>`; }
+}
+
+function printIndentVoucher(indentNo, dept, requestedBy, date, purpose, items){
+  const vEl=document.getElementById('voucherPrint');
+  vEl.innerHTML=`
+    <div style="max-width:700px;margin:0 auto;font-family:serif;">
+      <div style="text-align:center;margin-bottom:16px;border-bottom:2px solid #000;padding-bottom:12px;">
+        <div style="font-size:20px;font-weight:bold;">MATERIAL ISSUE VOUCHER</div>
+        <div style="font-size:13px;margin-top:4px;">Facility Management — JLL</div>
+      </div>
+      <table style="width:100%;margin-bottom:16px;font-size:13px;">
+        <tr><td style="width:50%;"><b>Indent No:</b> ${esc(indentNo)}</td><td><b>Date:</b> ${esc(date)}</td></tr>
+        <tr><td><b>Department:</b> ${esc(dept)}</td><td><b>Requested By:</b> ${esc(requestedBy)}</td></tr>
+        ${purpose?`<tr><td colspan="2"><b>Purpose:</b> ${esc(purpose)}</td></tr>`:''}
+      </table>
+      <table border="1" cellpadding="6" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px;">
+        <thead style="background:#e2e8f0;">
+          <tr><th>#</th><th>Material Name</th><th>Quantity</th><th>Unit</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          ${items.map((it,i)=>`<tr><td>${i+1}</td><td>${esc(it.materialName)}</td><td>${it.qty}</td><td>${esc(it.unit)}</td><td>${esc(it.purpose||'')}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:40px;font-size:13px;">
+        <div style="border-top:1px solid #000;padding-top:6px;text-align:center;">Issued By<br><br>____________________</div>
+        <div style="border-top:1px solid #000;padding-top:6px;text-align:center;">Received By<br><br>____________________</div>
+        <div style="border-top:1px solid #000;padding-top:6px;text-align:center;">Verified By<br><br>____________________</div>
+      </div>
+    </div>`;
+  setTimeout(()=>{ window.print(); },200);
+}
+
+/* ════════════════════════════════════════════
+   STOCK ADJUSTMENT
+════════════════════════════════════════════ */
+async function loadAdjustMaterialSelect(){
+  const sel=document.getElementById('adjMaterial'); sel.innerHTML='<option value="">Loading…</option>';
+  try{
+    const snap=inventoryAll.length?inventoryAll:(await db.collection('inventory').orderBy('materialName').get()).docs.map(d=>({_id:d.id,...d.data()}));
+    sel.innerHTML='<option value="">Select material…</option>';
+    snap.forEach(r=>sel.insertAdjacentHTML('beforeend',`<option value="${esc(r._id)}">${esc(r.materialName)} (${esc(r.department)})</option>`));
+  }catch(e){ sel.innerHTML='<option value="">Failed</option>'; }
+}
+
+document.getElementById('adjMaterial').addEventListener('change', async function(){
+  const infoEl=document.getElementById('adjCurrentStock');
+  if(!this.value){ infoEl.style.display='none'; return; }
+  const inv=inventoryAll.find(r=>r._id===this.value);
+  if(inv){
+    const avail=inv.availableQty??inv.receivedQty??0;
+    infoEl.style.display=''; infoEl.innerHTML=`<b>Current stock:</b> ${formatAvailable(avail,inv.containerUnit)} &nbsp;|&nbsp; <b>Unit:</b> ${esc(inv.containerUnit)} &nbsp;|&nbsp; <b>Dept:</b> ${esc(inv.department)}`;
+  }
+});
+
+async function saveAdjustment(){
+  const matId=document.getElementById('adjMaterial').value;
+  const adjType=document.getElementById('adjType').value;
+  const qty=parseFloat(document.getElementById('adjQty').value)||0;
+  const reason=document.getElementById('adjReason').value;
+  const notes=document.getElementById('adjNotes').value.trim();
+
+  if(!matId||!reason||!qty||qty<=0){ toast('Fill all required fields with valid quantity','error'); return; }
+
+  const inv=inventoryAll.find(r=>r._id===matId);
+  if(!inv){ toast('Material not found in cache — please refresh','error'); return; }
+
+  const avail=inv.availableQty??inv.receivedQty??0;
+  let newAvail;
+  if(adjType==='deduct')  newAvail=Math.max(0,avail-qty);
+  else if(adjType==='add') newAvail=avail+qty;
+  else /* set */           newAvail=qty;
+
+  const ok=await confirmModal(
+    'Confirm Stock Adjustment',
+    `${adjType==='deduct'?'Deduct':'Add'} ${qty} from "${inv.materialName}"? Current: ${formatAvailable(avail,inv.containerUnit)} → New: ${formatAvailable(newAvail,inv.containerUnit)}. Reason: ${reason}`,
+    'Save Adjustment','warn'
+  );
+  if(!ok) return;
+
+  const btn=document.getElementById('btnSaveAdj'); btn.disabled=true;
+  try{
+    await db.collection('inventory').doc(matId).update({
+      availableQty:newAvail, updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await db.collection('stockAdjustments').add({
+      inventoryId:matId, materialName:inv.materialName, department:inv.department,
+      adjType, qty, newAvail, oldAvail:avail,
+      reason, notes, by:auth.currentUser?.email||'Admin',
+      createdAt:firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('Adjustment saved'); clearAdjForm(); loadInventory(); updateKPIs(); loadAdjLog();
+  }catch(e){ toast('Failed: '+e.message,'error'); }
+  finally{ btn.disabled=false; }
+}
+
+function clearAdjForm(){
+  document.getElementById('adjMaterial').value='';
+  document.getElementById('adjType').value='deduct';
+  document.getElementById('adjQty').value='';
+  document.getElementById('adjReason').value='';
+  document.getElementById('adjNotes').value='';
+  document.getElementById('adjCurrentStock').style.display='none';
+}
+
+async function loadAdjLog(){
+  const el=document.getElementById('adjLog'); el.innerHTML='<div class="loader"></div>';
+  try{
+    const snap=await db.collection('stockAdjustments').orderBy('createdAt','desc').limit(30).get();
+    if(snap.empty){ el.innerHTML='<div class="empty-state"><i class="fa-solid fa-book-open"></i><p>No adjustments yet</p></div>'; return; }
+    el.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const dt=d.createdAt?d.createdAt.toDate().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'—';
+      const typeIcon=d.adjType==='add'?'<i class="fa-solid fa-plus" style="color:var(--ok);"></i>':d.adjType==='set'?'<i class="fa-solid fa-equals" style="color:var(--blue);"></i>':'<i class="fa-solid fa-minus" style="color:var(--danger);"></i>';
+      const typeLabel=d.adjType==='add'?`+${d.qty}`:d.adjType==='set'?`SET ${d.qty}`:`−${d.qty}`;
+      const typeColor=d.adjType==='add'?'var(--ok)':d.adjType==='set'?'var(--blue)':'var(--danger)';
+      el.insertAdjacentHTML('beforeend',`
+        <div style="display:flex;gap:10px;padding:10px;background:var(--gray1);border-radius:8px;margin-bottom:6px;align-items:flex-start;">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--white);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;">${typeIcon}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:12px;color:var(--gray9);">${esc(d.materialName)} — <span style="color:${typeColor};">${typeLabel}</span></div>
+            <div style="font-size:11px;color:var(--gray5);">${esc(d.reason)} ${d.notes?'· '+esc(d.notes):''}</div>
+            <div style="font-size:11px;color:var(--gray4);">${dt} · by ${esc(d.by||'Admin')}</div>
+          </div>
+        </div>`);
+    });
+  }catch(e){ el.innerHTML=`<div style="color:var(--danger);padding:12px;">${e.message}</div>`; }
+}
+
+/* ════════════════════════════════════════════
+   USERS
+════════════════════════════════════════════ */
+async function loadUsers(){
+  const el=document.getElementById('usersBody'); el.innerHTML='<tr><td colspan="6"><div class="loader"></div></td></tr>';
+  try{
+    const snap=await db.collection('users').orderBy('name').get();
+    if(snap.empty){ el.innerHTML='<tr><td colspan="6" class="empty-state">No users added yet. Use the form to add supervisors and their roles.</td></tr>'; return; }
+    el.innerHTML='';
+    snap.forEach(doc=>{
+      const d=doc.data();
+      const roleCls=d.role==='admin'?'role-admin':d.role==='viewer'?'role-viewer':'role-supervisor';
+      const statusBadge=d.status==='inactive'?'<span class="badge b-danger">Inactive</span>':'<span class="badge b-ok">Active</span>';
+      el.insertAdjacentHTML('beforeend',`
+        <tr>
+          <td class="bold">${esc(d.name||'—')}</td>
+          <td style="font-size:11px;">${esc(d.email||'—')}</td>
+          <td><span class="user-role-pill ${roleCls}">${esc(d.role||'supervisor')}</span></td>
+          <td><span class="badge b-teal" style="font-size:10px;">${esc(d.department||'All')}</span></td>
+          <td>${statusBadge}</td>
+          <td><div style="display:flex;gap:4px;">
+            <button class="btn btn-warn btn-sm" onclick="editUser('${doc.id}')"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="deleteUser('${doc.id}','${esc(d.name)}')"><i class="fa-solid fa-trash"></i></button>
+          </div></td>
+        </tr>`);
+    });
+  }catch(e){ el.innerHTML=`<tr><td colspan="6" style="color:var(--danger);padding:12px;">${e.message}</td></tr>`; }
+}
+
+async function saveUser(){
+  const name=document.getElementById('uName').value.trim();
+  const email=document.getElementById('uEmail').value.trim();
+  const role=document.getElementById('uRole').value;
+  if(!name||!email||!role){ toast('Name, email and role are required','error'); return; }
+  const data={name, email, role, department:document.getElementById('uDept').value, phone:document.getElementById('uPhone').value.trim(), status:document.getElementById('uStatus').value, notes:document.getElementById('uNotes').value.trim(), updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+  try{
+    if(editingUserId){
+      await db.collection('users').doc(editingUserId).update(data); toast('User updated'); editingUserId=null; document.getElementById('userFormTitle').textContent='Add User';
+    } else {
+      await db.collection('users').add({...data,createdAt:firebase.firestore.FieldValue.serverTimestamp()}); toast('User added');
+    }
+    ['uName','uEmail','uPhone','uNotes'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('uRole').value='supervisor'; document.getElementById('uDept').value=''; document.getElementById('uStatus').value='active';
+    loadUsers();
+  }catch(e){ toast('Save failed: '+e.message,'error'); }
+}
+async function editUser(id){
+  const doc=await db.collection('users').doc(id).get(); if(!doc.exists) return;
+  const d=doc.data();
+  document.getElementById('uName').value=d.name||''; document.getElementById('uEmail').value=d.email||'';
+  document.getElementById('uRole').value=d.role||'supervisor'; document.getElementById('uDept').value=d.department||'';
+  document.getElementById('uPhone').value=d.phone||''; document.getElementById('uStatus').value=d.status||'active';
+  document.getElementById('uNotes').value=d.notes||'';
+  editingUserId=id; document.getElementById('userFormTitle').textContent='Edit User'; showTab('users');
+}
+async function deleteUser(id,name='this user'){
+  const ok=await confirmModal('Delete User',`Remove "${name}" from the system?`,'Delete','danger');
+  if(!ok) return;
+  try{ await db.collection('users').doc(id).delete(); toast('Deleted'); loadUsers(); }catch(e){ toast('Delete failed','error'); }
+}
+
+/* ════════════════════════════════════════════
+   CSV EXPORT
+════════════════════════════════════════════ */
+function exportCSV(){
+  if(!inventoryAll.length){ toast('No inventory data to export','warn'); return; }
+  const headers=['#','Material Name','Category','Department','Available Qty','Unit','Container Size','Container Unit','MRP per Unit','Inventory Value','Supplier','Last Received','Stock %'];
+  const rows=inventoryAll.map((r,i)=>{
+    const avail=r.availableQty??r.receivedQty??0;
+    const total=r.totalQty??r.receivedQty??avail;
+    const pct=total>0?Math.round((avail/total)*100):0;
+    return [
+      i+1, r.materialName||'', r.category||'', r.department||'',
+      avail, r.containerUnit||'', r.containerSize||'', r.containerUnit||'',
+      r.mrp||0, r.inventoryValue?.toFixed(2)||0,
+      r.supplierName||'', r.lastReceivedDate||r.receivedDate||'', pct+'%'
+    ].map(v=>JSON.stringify(String(v))).join(',');
+  });
+  const csv=[headers.join(','),...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+csv);
+  a.download=`FM_Inventory_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  toast('CSV exported','info');
+}
+
+/* ════════════════════════════════════════════
+   PRINT
+════════════════════════════════════════════ */
+function printInventory(){ window.print(); }
+
+/* ════════════════════════════════════════════
+   EVENT WIRING
+════════════════════════════════════════════ */
+btnSave.addEventListener('click', saveMaterial);
+document.getElementById('btnClear').addEventListener('click', clearAddForm);
+document.getElementById('btnRefresh').addEventListener('click', async()=>{ await Promise.all([loadCategories(inpDept.value||null),loadSuppliers(),loadInventory()]); toast('Refreshed','info'); });
+document.getElementById('btnCalc').addEventListener('click', recalcTotals);
+document.getElementById('btnAddCategory').addEventListener('click', ()=>showTab('categories'));
+document.getElementById('btnAddSupplier').addEventListener('click', ()=>showTab('suppliers'));
+document.getElementById('btnReload').addEventListener('click', loadInventory);
+document.getElementById('btnReloadReq').addEventListener('click', loadActivity);
+document.getElementById('actPeriod').addEventListener('change', loadRequests);
+document.getElementById('btnSaveCat').addEventListener('click', saveCategory);
+document.getElementById('btnClearCat').addEventListener('click',()=>{ catName.value=''; catDept.value=''; editingCategoryId=null; document.getElementById('catFormTitle').textContent='Add Category'; });
+document.getElementById('btnSaveSup').addEventListener('click', saveSupplier);
+document.getElementById('btnClearSup').addEventListener('click',()=>{ ['sName','sPhone','sEmail','sAddress','sContact'].forEach(id=>document.getElementById(id).value=''); editingSupplierId=null; document.getElementById('supFormTitle').textContent='Add Supplier'; });
+inpDept.addEventListener('change', ()=>loadCategories(inpDept.value||null));
+document.getElementById('btnLogout').addEventListener('click',()=>{ auth.signOut().then(()=>{ localStorage.removeItem('supervisorName'); location.href='index.html'; }); });
+document.getElementById('btnSaveIndent').addEventListener('click', saveIndent);
+document.getElementById('btnReloadIndents').addEventListener('click', loadIndentList);
+document.getElementById('btnSaveAdj').addEventListener('click', saveAdjustment);
+document.getElementById('btnReloadAdj').addEventListener('click', loadAdjLog);
+document.getElementById('btnSaveUser').addEventListener('click', saveUser);
+document.getElementById('btnReloadUsers').addEventListener('click', loadUsers);
+document.getElementById('btnClearUser').addEventListener('click',()=>{
+  ['uName','uEmail','uPhone','uNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('uRole').value='supervisor'; document.getElementById('uDept').value=''; document.getElementById('uStatus').value='active';
+  editingUserId=null; document.getElementById('userFormTitle').textContent='Add User';
+});
+
+// Debounced search
+searchBox.addEventListener('input', debounce(renderInventory, 220));
+filterDept.addEventListener('change', renderInventory);
+document.getElementById('filterStock').addEventListener('change', renderInventory);
+document.getElementById('filterCategory').addEventListener('change', renderInventory);
+
+/* ════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════ */
+async function init(){
+  inpDate.value=new Date().toISOString().split('T')[0];
+  document.getElementById('iDate').value=new Date().toISOString().split('T')[0];
+  showTab('dashboard');
+  await Promise.all([loadCategories(),loadSuppliers(),loadInventory()]);
+  updateKPIs();
+}
+</script>
+</body>
+</html>

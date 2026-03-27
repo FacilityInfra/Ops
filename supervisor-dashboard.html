@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>Activities — Supervisor</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="stylesheet" href="design-system.css"/>
+<style>
+
+/* ── HERO ── */
+.dash-hero {
+  background: linear-gradient(135deg, var(--teal-900) 0%, var(--teal-600) 60%, var(--teal-400) 100%);
+  padding: 18px 16px 58px; position: relative; overflow: hidden;
+}
+.dash-hero::before {
+  content:''; position:absolute; width:180px; height:180px; border-radius:50%;
+  top:-60px; right:-50px; background:rgba(255,255,255,.06);
+}
+.dash-hero::after {
+  content:''; position:absolute; width:120px; height:120px; border-radius:50%;
+  bottom:10px; left:-40px; background:rgba(255,255,255,.05);
+}
+.hero-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; position:relative; z-index:1; }
+.hero-dept { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:rgba(255,255,255,.7); margin-bottom:3px; }
+.hero-title { font-size:18px; font-weight:800; color:#fff; line-height:1.2; }
+.hero-date { font-size:12px; color:rgba(255,255,255,.6); margin-top:3px; font-weight:500; }
+.hero-avatar {
+  width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,.2);
+  display:flex; align-items:center; justify-content:center;
+  font-size:18px; font-weight:800; color:#fff; border:2px solid rgba(255,255,255,.35); flex-shrink:0;
+}
+.hero-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; position:relative; z-index:1; }
+.hstat {
+  background:rgba(255,255,255,.14); backdrop-filter:blur(8px);
+  border-radius:12px; padding:10px 4px; text-align:center;
+  border:1px solid rgba(255,255,255,.2);
+}
+.hstat-val { font-size:1.4rem; font-weight:800; color:#fff; line-height:1; }
+.hstat-lbl { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:rgba(255,255,255,.65); margin-top:3px; }
+.hstat.v-hs .hstat-val { color:#7dd3fc; }
+
+/* ── TAB BAR ── */
+.tab-bar {
+  margin:-34px 12px 0; position:relative; z-index:10;
+  background:#fff; border-radius:16px; padding:4px; display:flex; gap:2px;
+  box-shadow:0 8px 32px rgba(0,0,0,.14);
+}
+.tab-btn {
+  flex:1; padding:9px 4px; border:none; background:transparent;
+  font-family:var(--font); font-size:11px; font-weight:700; color:var(--gray-500);
+  border-radius:12px; cursor:pointer; transition:var(--t-base);
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+}
+.tab-btn i { font-size:15px; }
+.tab-btn.active { background:linear-gradient(135deg,var(--teal-700),var(--teal-400)); color:#fff; box-shadow:0 3px 12px rgba(13,148,136,.35); }
+.tab-btn.v-tab.active { background:linear-gradient(135deg,var(--blue-700),var(--blue-500)); box-shadow:0 3px 12px rgba(59,130,246,.35); }
+.tab-badge {
+  background:var(--danger); color:#fff; font-size:9px; font-weight:800;
+  min-width:16px; height:16px; border-radius:8px; padding:0 4px;
+  display:flex; align-items:center; justify-content:center; line-height:1;
+}
+.tab-btn.active .tab-badge { background:rgba(255,255,255,.3); }
+
+/* ── PANELS ── */
+.tab-panel { display:none; padding:14px 12px 0; }
+.tab-panel.active { display:block; }
+
+.panel-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.panel-title { font-size:14px; font-weight:800; color:var(--gray-900); display:flex; align-items:center; gap:7px; }
+.panel-cnt { font-size:11px; font-weight:700; padding:3px 10px; border-radius:var(--r-pill); background:var(--teal-100); color:var(--teal-700); }
+.panel-cnt.b { background:var(--blue-100); color:var(--blue-700); }
+
+/* ── ACTIVITY CARD ── */
+.act-list { display:flex; flex-direction:column; gap:8px; }
+.act-card {
+  background:var(--white); border-radius:14px; padding:13px 14px;
+  display:flex; align-items:center; gap:12px;
+  box-shadow:var(--shadow-sm); border:1px solid var(--gray-100);
+  transition:var(--t-base); position:relative;
+  animation:cslide .35s var(--t-slow) both;
+}
+@keyframes cslide { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.act-card:hover { box-shadow:var(--shadow-md); border-color:var(--teal-200); transform:translateY(-1px); }
+.act-card::before {
+  content:''; position:absolute; left:0; top:10px; bottom:10px;
+  width:3px; border-radius:3px; background:var(--teal-400);
+}
+.act-card.vc::before { background:var(--blue-500); }
+.act-card.dc::before { background:var(--success); }
+.act-card.uc::before { background:var(--warning); }
+
+.act-icon {
+  width:42px; height:42px; border-radius:12px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:17px;
+}
+.ai-pending  { background:var(--teal-100);      color:var(--teal-700); }
+.ai-vendor   { background:var(--blue-100);       color:var(--blue-700); }
+.ai-done     { background:var(--success-bg);     color:var(--success); }
+.ai-upcoming { background:#fef3c7;               color:var(--warning); }
+
+.act-body  { flex:1; min-width:0; }
+.act-name  { font-size:13px; font-weight:700; color:var(--gray-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.act-meta  { display:flex; align-items:center; gap:5px; margin-top:3px; flex-wrap:wrap; }
+.fpill     { background:var(--gray-100); color:var(--gray-600); font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; }
+.vpill     { background:var(--blue-100); color:var(--blue-700); font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; }
+.dpill     { font-size:10px; color:var(--gray-500); font-weight:600; }
+.ppill     { font-size:10px; color:var(--blue-600); font-weight:600; }
+
+.abt { border:none; cursor:pointer; font-family:var(--font); font-size:12px; font-weight:700; border-radius:10px; padding:8px 13px; white-space:nowrap; transition:var(--t-fast); flex-shrink:0; }
+.abt-u { background:linear-gradient(135deg,var(--teal-700),var(--teal-400)); color:#fff; box-shadow:0 3px 8px rgba(13,148,136,.3); }
+.abt-u:hover { transform:scale(1.04); box-shadow:0 4px 14px rgba(13,148,136,.45); }
+.abt-c { background:linear-gradient(135deg,var(--blue-700),var(--blue-500)); color:#fff; box-shadow:0 3px 8px rgba(59,130,246,.3); }
+.abt-c:hover { transform:scale(1.04); box-shadow:0 4px 14px rgba(59,130,246,.45); }
+
+/* ── ALL-DONE ── */
+.all-done { display:flex; flex-direction:column; align-items:center; padding:28px 16px; gap:8px; text-align:center; }
+.done-ring { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--success-bg),#bbf7d0); display:flex; align-items:center; justify-content:center; font-size:28px; }
+.all-done h3 { font-size:15px; font-weight:800; color:var(--success); margin:0; }
+.all-done p  { font-size:12px; color:var(--gray-500); margin:0; }
+
+/* ── COMPLETED ROWS ── */
+.done-row {
+  display:flex; align-items:center; gap:10px; padding:10px 0;
+  border-bottom:1px solid var(--gray-100);
+  animation:cslide .3s var(--t-slow) both;
+}
+.done-row:last-child { border-bottom:none; }
+.done-dt { font-size:11px; font-weight:700; color:var(--gray-500); min-width:56px; text-align:center; background:var(--gray-100); padding:4px 6px; border-radius:8px; line-height:1.3; }
+.done-nm { flex:1; font-size:13px; font-weight:600; color:var(--gray-900); min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── NO DATA ── */
+.no-data { text-align:center; padding:24px 12px; color:var(--gray-500); font-size:13px; font-weight:600; }
+.no-data i { display:block; font-size:28px; margin-bottom:8px; opacity:.35; }
+
+/* ── SKELETON ── */
+.act-skel { background:var(--white); border-radius:14px; padding:13px 14px; display:flex; gap:12px; align-items:center; border:1px solid var(--gray-100); }
+.sk-ic { width:42px; height:42px; border-radius:12px; flex-shrink:0; }
+.sk-ln { flex:1; display:flex; flex-direction:column; gap:7px; }
+.sk-l  { height:12px; border-radius:6px; }
+.sk-s  { width:55%; }
+
+.page-content { padding-top:0 !important; }
+
+@keyframes spin-r { to { transform:rotate(360deg); } }
+.spinning { animation:spin-r .6s linear infinite; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-icon"><i class="fa-solid fa-list-check" style="font-size:14px"></i></div>
+    Activities
+  </div>
+  <div class="header-right">
+    <button class="icon-btn" id="refreshBtn"><i class="fa-solid fa-rotate-right" id="refreshIco"></i></button>
+    <div class="user-pill">
+      <div class="avatar"><i class="fa-solid fa-user" style="font-size:10px"></i></div>
+      <span id="supervisorName">…</span>
+    </div>
+  </div>
+</header>
+
+<div id="toast"></div>
+
+<main class="page-content">
+
+  <!-- HERO -->
+  <div class="dash-hero">
+    <div class="hero-top">
+      <div>
+        <div class="hero-dept" id="heroDept">Department</div>
+        <div class="hero-title" id="heroTitle">Today's Activities</div>
+        <div class="hero-date" id="heroDate">—</div>
+      </div>
+      <div class="hero-avatar" id="heroInit">?</div>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-val" id="sToday">—</div><div class="hstat-lbl">Today ✓</div></div>
+      <div class="hstat"><div class="hstat-val" id="sWeek">—</div><div class="hstat-lbl">7 Days</div></div>
+      <div class="hstat"><div class="hstat-val" id="sPend">—</div><div class="hstat-lbl">Pending</div></div>
+      <div class="hstat v-hs"><div class="hstat-val" id="sVend">—</div><div class="hstat-lbl">Vendor ⏳</div></div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="today">
+      <i class="fa-solid fa-circle-check"></i><span>Today</span>
+      <span class="tab-badge" id="tb-today">0</span>
+    </button>
+    <button class="tab-btn v-tab" data-tab="vendor">
+      <i class="fa-solid fa-truck"></i><span>Vendors</span>
+      <span class="tab-badge" id="tb-vendor">0</span>
+    </button>
+    <button class="tab-btn" data-tab="done">
+      <i class="fa-solid fa-check-double"></i><span>Done</span>
+    </button>
+    <button class="tab-btn" data-tab="upcoming">
+      <i class="fa-solid fa-calendar-days"></i><span>Schedule</span>
+    </button>
+  </div>
+
+  <!-- TODAY -->
+  <div class="tab-panel active" id="panel-today">
+    <div class="panel-hdr">
+      <div class="panel-title"><i class="fa-solid fa-circle-check" style="color:var(--teal-500)"></i>Assigned Today</div>
+      <span class="panel-cnt" id="cnt-today">0</span>
+    </div>
+    <div class="act-list" id="list-today">
+      <div class="act-skel"><div class="sk-ic skeleton"></div><div class="sk-ln"><div class="sk-l skeleton"></div><div class="sk-l sk-s skeleton"></div></div></div>
+      <div class="act-skel" style="animation-delay:.1s"><div class="sk-ic skeleton"></div><div class="sk-ln"><div class="sk-l skeleton"></div><div class="sk-l sk-s skeleton"></div></div></div>
+    </div>
+  </div>
+
+  <!-- VENDOR -->
+  <div class="tab-panel" id="panel-vendor">
+    <div class="panel-hdr">
+      <div class="panel-title" style="color:var(--blue-700)"><i class="fa-solid fa-truck" style="color:var(--blue-500)"></i>Vendor Visits</div>
+      <span class="panel-cnt b" id="cnt-vendor">0</span>
+    </div>
+    <div class="act-list" id="list-vendor">
+      <div class="act-skel"><div class="sk-ic skeleton"></div><div class="sk-ln"><div class="sk-l skeleton"></div><div class="sk-l sk-s skeleton"></div></div></div>
+    </div>
+  </div>
+
+  <!-- DONE -->
+  <div class="tab-panel" id="panel-done">
+    <div class="panel-hdr">
+      <div class="panel-title"><i class="fa-solid fa-check-double" style="color:var(--success)"></i>Completed — Last 7 Days</div>
+    </div>
+    <div class="card" style="padding:14px 14px 8px;">
+      <div id="list-done">
+        <div class="act-skel"><div class="sk-ic skeleton"></div><div class="sk-ln"><div class="sk-l skeleton"></div><div class="sk-l sk-s skeleton"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UPCOMING -->
+  <div class="tab-panel" id="panel-upcoming">
+    <div class="panel-hdr">
+      <div class="panel-title"><i class="fa-solid fa-calendar-days" style="color:var(--warning)"></i>Next 7 Days</div>
+    </div>
+    <div class="act-list" id="list-upcoming">
+      <div class="act-skel"><div class="sk-ic skeleton"></div><div class="sk-ln"><div class="sk-l skeleton"></div><div class="sk-l sk-s skeleton"></div></div></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="bottom-nav" id="bottomNav">
+  <button onclick="location.href='Home.html'"><i class="fa-solid fa-house"></i><span>Home</span></button>
+  <button class="active"><i class="fa-solid fa-list-check"></i><span>Activity</span></button>
+  <button onclick="location.href='supervisor-inventory-issue.html'"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/supervisor-common.js"></script>
+<script>
+const DAY=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+let dept='', uName='';
+
+/* AUTH */
+auth.onAuthStateChanged(async user=>{
+  if(!user){location.href='index.html';return;}
+  let d='';
+  try{const u=await db.collection('users').doc(user.uid).get();if(u.exists){d=u.data().department||'';uName=u.data().displayName||'';}}catch(e){}
+  if(!d){const m={'me@jll.com':'M&E','hk@jll.com':'H&K','security@jll.com':'Security','ehs@jll.com':'EHS'};d=m[user.email]||'';}
+  if(!uName) uName=localStorage.getItem('supervisorName')||user.email.split('@')[0];
+  dept=d;
+  document.getElementById('supervisorName').textContent=uName;
+  document.getElementById('heroDept').textContent=d||'All Departments';
+  document.getElementById('heroTitle').textContent=`${uName}'s Activities`;
+  document.getElementById('heroDate').textContent=new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('heroInit').textContent=uName.charAt(0).toUpperCase();
+  if(!d) toast('⚠️ No department assigned','error');
+  loadAll();
+  setInterval(loadAll,10*60*1000);
+});
+
+/* TABS */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+  });
+});
+
+/* HELPERS */
+function dayR(d){const s=new Date(d);s.setHours(0,0,0,0);const e=new Date(s);e.setDate(s.getDate()+1);return{start:s,end:e};}
+function wkNum(d){const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));dt.setUTCDate(dt.getUTCDate()+4-(dt.getUTCDay()||7));return Math.ceil((((dt-new Date(Date.UTC(dt.getUTCFullYear(),0,1)))/864e5)+1)/7);}
+function fort(d){return d.getDate()<=15?1:2;}
+function periodLbl(freq){
+  const n=new Date();
+  if(freq==='Weekly'){const diff=n.getDay()===0?-6:1-n.getDay();const m=new Date(n);m.setDate(n.getDate()+diff);const s=new Date(m);s.setDate(m.getDate()+6);const f=d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});return `${f(m)}–${f(s)}`;}
+  if(freq==='Bimonthly') return n.getDate()<=15?`1–15 ${n.toLocaleString('en',{month:'short'})}`:`16–end ${n.toLocaleString('en',{month:'short'})}`;
+  return n.toLocaleString('en',{month:'long',year:'numeric'});
+}
+function isVendorDue(s,subs){
+  const n=new Date(),freq=s.frequency||'Weekly';
+  if(!['Weekly','Bimonthly','Monthly'].includes(freq)) return true;
+  const rel=subs.filter(sub=>sub.activityName===s.activityName&&sub.photos?.length>0);
+  for(const sub of rel){
+    const sd=sub.timestamp?sub.timestamp.toDate():new Date(sub.date);
+    if(freq==='Weekly'&&wkNum(sd)===wkNum(n)&&sd.getFullYear()===n.getFullYear()) return false;
+    if(freq==='Bimonthly'&&fort(sd)===fort(n)&&sd.getMonth()===n.getMonth()&&sd.getFullYear()===n.getFullYear()) return false;
+    if(freq==='Monthly'&&sd.getMonth()===n.getMonth()&&sd.getFullYear()===n.getFullYear()) return false;
+  }
+  return true;
+}
+function go(dep,act,id,date='',vendor=''){
+  const d=date||new Date().toISOString().split('T')[0];
+  let url=`upload-activity.html?department=${encodeURIComponent(dep)}&activity=${encodeURIComponent(act)}&id=${id}&date=${d}`;
+  if(vendor) url+=`&vendor=${encodeURIComponent(vendor)}`;
+  location.href=url;
+}
+function allDone(emoji,h,p){return `<div class="all-done"><div class="done-ring">${emoji}</div><h3>${h}</h3><p>${p}</p></div>`;}
+
+/* LOAD ALL */
+async function loadAll(){
+  await Promise.all([loadToday(),loadVendors(),loadDone(),loadUpcoming(),updateStats()]);
+}
+
+/* TODAY */
+async function loadToday(){
+  const el=document.getElementById('list-today');
+  const today=new Date(),{start,end}=dayR(today),todayName=DAY[today.getDay()];
+  const [sch,sub]=await Promise.all([
+    db.collection('activitySchedules').orderBy('createdAt','desc').get(),
+    db.collection('submissions').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(start)).where('timestamp','<',firebase.firestore.Timestamp.fromDate(end)).get()
+  ]);
+  const done=new Set();
+  sub.forEach(d=>{const s=d.data();if(s.photos?.length>0)done.add(`${s.department}__${s.activityName}`);});
+  const items=[];
+  sch.forEach(doc=>{
+    const s=doc.data();
+    if(s.activityType==='vendor') return;
+    if(dept&&s.department!==dept) return;
+    if(done.has(`${s.department}__${s.activityName}`)) return;
+    let show=false;
+    if(s.frequency==='Daily') show=true;
+    else if(s.frequency==='Weekly') show=(s.recurringDays||[]).includes(todayName);
+    else if(s.nextDate){const nd=new Date(s.nextDate);show=nd.getDate()===today.getDate()&&nd.getMonth()===today.getMonth();}
+    if(show) items.push({name:s.activityName,freq:s.frequency,dept:s.department,id:doc.id});
+  });
+  document.getElementById('tb-today').textContent=items.length;
+  document.getElementById('cnt-today').textContent=items.length;
+  document.getElementById('sPend').textContent=items.length;
+  el.innerHTML='';
+  if(!items.length){el.innerHTML=allDone('✅','All Done!','No pending activities for today');return;}
+  items.forEach((it,i)=>{
+    const c=document.createElement('div'); c.className='act-card'; c.style.animationDelay=`${i*0.06}s`;
+    c.innerHTML=`<div class="act-icon ai-pending"><i class="fa-solid fa-broom"></i></div><div class="act-body"><div class="act-name">${escapeHtml(it.name)}</div><div class="act-meta"><span class="fpill">${escapeHtml(it.freq)}</span><span class="dpill">${escapeHtml(it.dept)}</span></div></div><button class="abt abt-u"><i class="fa-solid fa-camera"></i> Upload</button>`;
+    c.querySelector('button').onclick=()=>go(it.dept,it.name,it.id);
+    el.appendChild(c);
+  });
+}
+
+/* VENDORS */
+async function loadVendors(){
+  const el=document.getElementById('list-vendor');
+  const now=new Date(),mStart=new Date(now.getFullYear(),now.getMonth(),1);
+  const [vs,ss]=await Promise.all([
+    db.collection('activitySchedules').where('activityType','==','vendor').get(),
+    db.collection('submissions').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(mStart)).get()
+  ]);
+  const subs=ss.docs.map(d=>d.data()).filter(d=>d.activityType==='vendor'||d.department==='Vendor');
+  const items=[];
+  vs.forEach(doc=>{const s=doc.data();if(!isVendorDue(s,subs)) return;items.push({name:s.activityName,vendor:s.vendorName||'Vendor',freq:s.frequency,id:doc.id});});
+  document.getElementById('tb-vendor').textContent=items.length;
+  document.getElementById('cnt-vendor').textContent=items.length;
+  document.getElementById('sVend').textContent=items.length;
+  el.innerHTML='';
+  if(!items.length){el.innerHTML=allDone('🚚','All Confirmed!','All vendor visits confirmed this period');return;}
+  items.forEach((it,i)=>{
+    const c=document.createElement('div'); c.className='act-card vc'; c.style.animationDelay=`${i*0.06}s`;
+    c.innerHTML=`<div class="act-icon ai-vendor"><i class="fa-solid fa-truck"></i></div><div class="act-body"><div class="act-name">${escapeHtml(it.vendor)}</div><div class="act-meta"><span class="vpill">${escapeHtml(it.name)}</span><span class="ppill">${periodLbl(it.freq)}</span></div></div><button class="abt abt-c"><i class="fa-solid fa-circle-check"></i> Confirm</button>`;
+    c.querySelector('button').onclick=()=>go('Vendor',it.name,it.id,'',it.vendor);
+    el.appendChild(c);
+  });
+}
+
+/* COMPLETED */
+async function loadDone(){
+  const el=document.getElementById('list-done');
+  const ago=new Date(); ago.setDate(ago.getDate()-7); ago.setHours(0,0,0,0);
+  const snap=await db.collection('submissions').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(ago)).orderBy('timestamp','desc').get();
+  el.innerHTML=''; let n=0;
+  snap.forEach(d=>{
+    const s=d.data(); if(!s.photos?.length) return;
+    const isV=s.department==='Vendor';
+    if(!isV&&dept&&s.department!==dept) return;
+    const dt=s.timestamp?s.timestamp.toDate():new Date(s.date);
+    const tag=isV?`<span class="badge badge-blue" style="font-size:10px">🚚</span>`:`<span class="badge badge-teal" style="font-size:10px">${escapeHtml(s.department)}</span>`;
+    const row=document.createElement('div'); row.className='done-row'; row.style.animationDelay=`${n*0.04}s`;
+    row.innerHTML=`<div class="done-dt">${dt.toLocaleDateString('en-GB',{weekday:'short'})}<br>${dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</div><div class="done-nm">${escapeHtml(s.activityName)}</div><div>${tag}</div><span class="badge badge-success" style="font-size:10px;flex-shrink:0">✓</span>`;
+    el.appendChild(row); n++;
+  });
+  if(!n) el.innerHTML=`<div class="no-data"><i class="fa-solid fa-clock-rotate-left"></i>No completions in last 7 days</div>`;
+}
+
+/* UPCOMING */
+async function loadUpcoming(){
+  const el=document.getElementById('list-upcoming');
+  const today=new Date();
+  const ne=new Date(today); ne.setDate(today.getDate()+8);
+  const ms=new Date(today.getFullYear(),today.getMonth(),1);
+  const [sch,d7,vs,vsub]=await Promise.all([
+    db.collection('activitySchedules').orderBy('createdAt','desc').get(),
+    db.collection('submissions').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(today)).where('timestamp','<',firebase.firestore.Timestamp.fromDate(ne)).get(),
+    db.collection('activitySchedules').where('activityType','==','vendor').get(),
+    db.collection('submissions').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(ms)).get()
+  ]);
+  const dSet=new Set(); d7.forEach(d=>{const s=d.data();if(s.photos?.length>0)dSet.add(`${s.date}__${s.activityName}`);});
+  const vSubs=vsub.docs.map(d=>d.data()).filter(d=>d.activityType==='vendor'||d.department==='Vendor');
+  const list=[];
+  sch.docs.forEach(doc=>{
+    const s=doc.data(); if(s.activityType==='vendor') return; if(dept&&s.department!==dept) return;
+    for(let i=1;i<=7;i++){
+      const d=new Date(today); d.setDate(today.getDate()+i); const nm=DAY[d.getDay()];
+      let show=false;
+      if(s.frequency==='Daily') show=true;
+      else if(s.frequency==='Weekly') show=(s.recurringDays||[]).includes(nm);
+      else if(s.nextDate){const nd=new Date(s.nextDate);show=nd.getDate()===d.getDate()&&nd.getMonth()===d.getMonth();}
+      const ds=d.toISOString().slice(0,10);
+      if(show&&!dSet.has(`${ds}__${s.activityName}`)) list.push({date:ds,day:nm.slice(0,3),name:s.activityName,id:doc.id,dept:s.department,isV:false});
+    }
+  });
+  vs.docs.forEach(doc=>{const s=doc.data();if(isVendorDue(s,vSubs)) list.push({date:'period',day:'',name:s.activityName,vendor:s.vendorName,freq:s.frequency,id:doc.id,dept:'Vendor',isV:true});});
+  list.sort((a,b)=>a.date.localeCompare(b.date));
+  el.innerHTML='';
+  if(!list.length){el.innerHTML=`<div class="no-data"><i class="fa-solid fa-calendar-check"></i>No upcoming activities</div>`;return;}
+  list.forEach((it,i)=>{
+    const c=document.createElement('div'); c.style.animationDelay=`${i*0.05}s`;
+    if(it.isV){
+      c.className='act-card vc';
+      c.innerHTML=`<div class="act-icon ai-vendor"><i class="fa-solid fa-truck"></i></div><div class="act-body"><div class="act-name">${escapeHtml(it.vendor||it.name)}</div><div class="act-meta"><span class="vpill">${escapeHtml(it.name)}</span><span class="ppill">${periodLbl(it.freq)}</span></div></div><button class="abt abt-c"><i class="fa-solid fa-circle-check"></i></button>`;
+      c.querySelector('button').onclick=()=>go('Vendor',it.name,it.id,'',it.vendor);
+    } else {
+      c.className='act-card uc';
+      const fd=new Date(it.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+      c.innerHTML=`<div class="act-icon ai-upcoming"><i class="fa-solid fa-calendar"></i></div><div class="act-body"><div class="act-name">${escapeHtml(it.name)}</div><div class="act-meta"><span class="fpill">${escapeHtml(it.day)}</span><span class="dpill">📅 ${fd}</span></div></div><button class="abt abt-u"><i class="fa-solid fa-camera"></i></button>`;
+      c.querySelector('button').onclick=()=>go(it.dept,it.name,it.id,it.date);
+    }
+    el.appendChild(c);
+  });
+}
+
+/* STATS */
+async function updateStats(){
+  const today=new Date(),{start}=dayR(today);
+  const ago=new Date(); ago.setDate(today.getDate()-7); ago.setHours(0,0,0,0);
+  const snap=await db.collection('submissions').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(ago)).orderBy('timestamp','desc').get();
+  let tc=0,wc=0;
+  snap.forEach(d=>{
+    const s=d.data(); if(!s.photos?.length) return;
+    const isV=s.department==='Vendor';
+    if(!isV&&dept&&s.department!==dept) return;
+    const dt=s.timestamp?s.timestamp.toDate():new Date(s.date);
+    if(dt>=start) tc++;
+    wc++;
+  });
+  document.getElementById('sToday').textContent=tc;
+  document.getElementById('sWeek').textContent=wc;
+}
+
+/* REFRESH */
+document.getElementById('refreshBtn').addEventListener('click',async()=>{
+  document.getElementById('refreshIco').classList.add('spinning');
+  toast('Refreshing…','info');
+  await loadAll();
+  document.getElementById('refreshIco').classList.remove('spinning');
+  toast('Updated!');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+/* inventory-style.css — now just references design-system.css */
+/* All styles live in design-system.css — this file kept for backward compat */
+@import url('design-system.css');
+
+/* Legacy overrides kept minimal */
+main { padding-top: 110px; padding-bottom: 110px; }

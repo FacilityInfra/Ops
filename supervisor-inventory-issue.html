@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Issue Materials</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="stylesheet" href="design-system.css"/>
+<style>
+  .page-content.with-subnav { padding-top: 110px !important; }
+
+  /* ── Material info card ── */
+  .mat-card {
+    background: var(--teal-50); border: 1.5px solid var(--teal-100);
+    border-radius: var(--r-md); padding: 14px; margin-top: 12px;
+  }
+  .mat-card-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 10px;
+  }
+  .mat-name  { font-size: 14px; font-weight: 800; color: var(--gray-900); }
+  .mat-sub   { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+  .mat-avail { text-align: right; }
+  .mat-avail-val  { font-size: 15px; font-weight: 800; color: var(--teal-700); }
+  .mat-avail-lbl  { font-size: 10px; color: var(--gray-500); }
+  .mat-avail-cont { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
+
+  /* Stock bar */
+  .stock-row { display:flex; align-items:center; gap:10px; margin-top:8px; }
+  .stock-lbl { font-size:11px; font-weight:700; min-width:66px;
+               padding:2px 8px; border-radius:99px; text-align:center; }
+  .stock-lbl.ok   { background:var(--success-bg); color:var(--success); }
+  .stock-lbl.low  { background:var(--warning-bg); color:var(--warning); }
+  .stock-lbl.crit { background:var(--danger-bg);  color:var(--danger); }
+  .stock-bar-wrap { flex:1; height:8px; background:rgba(0,0,0,.06); border-radius:99px; overflow:hidden; }
+  .stock-bar { height:100%; border-radius:99px; transition:width .5s cubic-bezier(.4,0,.2,1); }
+  .bar-ok   { background:linear-gradient(90deg,var(--teal-600),var(--teal-400)); }
+  .bar-low  { background:linear-gradient(90deg,var(--warning),#fcd34d); }
+  .bar-crit { background:var(--danger); }
+  .stock-pct { font-size:11px; font-weight:800; color:var(--gray-500); min-width:30px; text-align:right; }
+
+  /* ── Issue preview banner ── */
+  .issue-preview {
+    display: none;
+    background: var(--gray-900); color: #fff;
+    border-radius: var(--r-md); padding: 10px 14px;
+    margin-top: 10px; font-size: 13px; font-weight: 600;
+    display: none; align-items: center; gap: 8px;
+    animation: fadeIn .2s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:none} }
+  .issue-preview.visible { display: flex; }
+  .issue-preview .preview-icon { font-size: 16px; flex-shrink:0; }
+  .issue-preview .preview-txt  { flex: 1; line-height: 1.4; }
+  .issue-preview .preview-warn { color: #fbbf24; font-size: 11px; display:block; margin-top:2px; }
+  .issue-preview.over-stock    { background: var(--danger); }
+
+  /* ── Recent issues ── */
+  .issue-row {
+    display:flex; align-items:center; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--gray-100);
+    animation: rowIn .3s ease both;
+  }
+  @keyframes rowIn { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:none} }
+  .issue-row:last-child { border-bottom:none; }
+  .issue-icon { width:36px; height:36px; border-radius:10px; background:var(--teal-100);
+                color:var(--teal-700); display:flex; align-items:center;
+                justify-content:center; font-size:14px; flex-shrink:0; }
+  .issue-body { flex:1; min-width:0; }
+  .issue-name { font-size:13px; font-weight:700; color:var(--gray-900);
+                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .issue-meta { font-size:11px; color:var(--gray-500); margin-top:1px; }
+  .issue-qty  { font-size:13px; font-weight:800; color:var(--teal-700); flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-icon"><i class="fa-solid fa-boxes-stacked" style="font-size:13px"></i></div>
+    Issue Materials
+  </div>
+  <div class="header-right">
+    <div class="user-pill">
+      <div class="avatar"><i class="fa-solid fa-user" style="font-size:10px"></i></div>
+      <span id="userName">…</span>
+    </div>
+  </div>
+</header>
+
+<nav id="autoNav" class="auto-navbar">
+  <button class="nav-item active" onclick="location.href='supervisor-inventory-issue.html'">
+    <i class="fa-solid fa-boxes-stacked"></i>Issue
+  </button>
+  <button class="nav-item" onclick="location.href='supervisor-inventory-req.html'">
+    <i class="fa-solid fa-file-circle-plus"></i>Request
+  </button>
+  <button class="nav-item" onclick="location.href='supervisor-inventory-usage.html'">
+    <i class="fa-solid fa-chart-bar"></i>Logs
+  </button>
+</nav>
+
+<div id="toast"></div>
+
+<main class="page-content with-subnav">
+
+  <!-- ── ISSUE FORM ── -->
+  <section class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-paper-plane"></i> Issue Material</div>
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" id="clearIssue">
+        <i class="fa-solid fa-eraser"></i> Clear
+      </button>
+    </div>
+
+    <div class="field-grid">
+
+      <!-- Department -->
+      <div class="field">
+        <label>Department</label>
+        <select id="issueDept">
+          <option value="">Select Department</option>
+          <option value="HK">Housekeeping</option>
+          <option value="Pantry">Pantry</option>
+          <option value="ME">Maintenance</option>
+          <option value="Security">Security</option>
+          <option value="EHS">EHS</option>
+        </select>
+      </div>
+
+      <!-- Category -->
+      <div class="field">
+        <label>Category</label>
+        <select id="issueCategory"><option value="">Select Dept first</option></select>
+      </div>
+
+      <!-- Material -->
+      <div class="field">
+        <label>Material</label>
+        <select id="issueMaterial"><option value="">Select Category first</option></select>
+      </div>
+
+      <!--
+        UNIT — populated by populateUnits() based on the inventory item's
+        containerUnit family. Only same-family units are shown.
+        Liquid items → ml / Litre only
+        Weight items → g / Kg only
+        Count items  → the exact count unit (Nos/Pcs/Roll/Box/Pair etc.) only
+      -->
+      <div class="field">
+        <label>Issue Unit
+          <span id="unitHint" style="font-size:10px;font-weight:400;color:var(--gray-500);text-transform:none;letter-spacing:0;margin-left:4px;"></span>
+        </label>
+        <select id="issueUnit"><option value="">Select Material first</option></select>
+      </div>
+
+      <!-- Qty — step and placeholder set dynamically based on unit type -->
+      <div class="field">
+        <label>Quantity
+          <span id="maxHint" style="font-size:10px;font-weight:400;color:var(--gray-500);text-transform:none;letter-spacing:0;margin-left:4px;"></span>
+        </label>
+        <input id="issueQty" type="number" step="0.001" min="0.001" placeholder="0"/>
+      </div>
+
+      <!-- Purpose -->
+      <div class="field">
+        <label>Purpose</label>
+        <input id="issuePurpose" placeholder="e.g. Cleaning washrooms"/>
+      </div>
+
+      <!-- Remarks -->
+      <div class="field full">
+        <label>Remarks <span style="font-weight:400;text-transform:none;letter-spacing:0">(Optional)</span></label>
+        <textarea id="issueRemarks" rows="2" placeholder="Any additional notes…"></textarea>
+      </div>
+
+    </div>
+
+    <!-- Material info panel — shown after material is selected -->
+    <div id="matInfo" style="display:none;">
+      <div class="mat-card">
+        <div class="mat-card-header">
+          <div>
+            <div class="mat-name" id="infoName">—</div>
+            <div class="mat-sub" id="infoCatDept">—</div>
+          </div>
+          <div class="mat-avail">
+            <div class="mat-avail-val" id="infoAvail">—</div>
+            <div class="mat-avail-lbl">Available</div>
+            <div class="mat-avail-cont" id="infoContainers">—</div>
+          </div>
+        </div>
+        <div class="stock-row">
+          <span class="stock-lbl" id="stockLbl">—</span>
+          <div class="stock-bar-wrap"><div class="stock-bar" id="stockBar" style="width:0%"></div></div>
+          <span class="stock-pct" id="stockPct">—</span>
+        </div>
+      </div>
+
+      <!-- Live issue preview — updates as qty/unit changes -->
+      <div class="issue-preview" id="issuePreview">
+        <span class="preview-icon">📦</span>
+        <span class="preview-txt" id="previewTxt">—</span>
+      </div>
+    </div>
+
+    <!-- Validation message -->
+    <div id="issueMsg" style="min-height:18px;margin-top:10px;font-size:13px;font-weight:600;text-align:center;"></div>
+
+    <button class="btn btn-submit" id="btnIssue" style="margin-top:14px;">
+      <i class="fa-solid fa-paper-plane"></i> Submit Issue
+    </button>
+  </section>
+
+  <!-- ── RECENT ISSUES TODAY ── -->
+  <section class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Issued Today</div>
+      <button class="icon-btn" id="refreshRecent" style="background:var(--gray-100);color:var(--gray-700);">
+        <i class="fa-solid fa-rotate-right"></i>
+      </button>
+    </div>
+    <div id="recentList">
+      <div style="text-align:center;padding:14px;"><div class="loader"></div></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="bottom-nav" id="bottomNav">
+  <button onclick="location.href='Home.html'"><i class="fa-solid fa-house"></i><span>Home</span></button>
+  <button onclick="location.href='supervisor-dashboard.html'"><i class="fa-solid fa-list-check"></i><span>Activity</span></button>
+  <button class="active"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/supervisor-common.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   UNIT SYSTEM
+   ═══════════════════════════════════════════════════════════════════════
+   This is the single source of truth for how units work in issuance.
+
+   THREE families:
+     liquid  → stored in ml.   User can issue in ml or Litre.
+     weight  → stored in g.    User can issue in g or Kg.
+     count   → stored as-is.   User can ONLY issue in the exact unit
+                                the admin chose (Nos, Pcs, Roll, etc.)
+                                because fractions are often meaningless.
+
+   Why count items don't offer sub-units:
+     If admin stocks "Garbage Bags" as Nos, issuing "0.5 Nos" makes no
+     sense. If admin stocks "Toilet Paper" as Roll, they mean one roll,
+     not a fraction. If a supervisor needs a Box of 50 rolls, the admin
+     should have entered the inventory in Boxes.
+
+   Why liquid/weight items offer both units:
+     A supervisor might think in "litres" (floor cleaning = 2L) but the
+     system stores ml. We must accept both and convert correctly.
+   ─────────────────────────────────────────────────────────────────── */
+
+const UNIT_META = {
+  /* unit → { family, baseUnit, toBase(v), fromBase(v), label, step } */
+  'Litre':  { family:'liquid', baseUnit:'ml',   toBase: v=>v*1000, fromBase: v=>v/1000, label:'Litre (L)',  step:0.001 },
+  'ml':     { family:'liquid', baseUnit:'ml',   toBase: v=>v,      fromBase: v=>v,      label:'Millilitre (ml)', step:1 },
+  'Kg':     { family:'weight', baseUnit:'g',    toBase: v=>v*1000, fromBase: v=>v/1000, label:'Kilogram (Kg)',   step:0.001 },
+  'g':      { family:'weight', baseUnit:'g',    toBase: v=>v,      fromBase: v=>v,      label:'Gram (g)',        step:1 },
+  /* count units — stored and issued 1:1 */
+  'Nos':    { family:'count',  baseUnit:'Nos',  toBase: v=>v, fromBase: v=>v, label:'Number (Nos)',  step:1 },
+  'Pcs':    { family:'count',  baseUnit:'Pcs',  toBase: v=>v, fromBase: v=>v, label:'Pieces (Pcs)', step:1 },
+  'Pair':   { family:'count',  baseUnit:'Pair', toBase: v=>v, fromBase: v=>v, label:'Pair',         step:1 },
+  'Box':    { family:'count',  baseUnit:'Box',  toBase: v=>v, fromBase: v=>v, label:'Box',          step:1 },
+  'Pack':   { family:'count',  baseUnit:'Pack', toBase: v=>v, fromBase: v=>v, label:'Pack',         step:1 },
+  'Roll':   { family:'count',  baseUnit:'Roll', toBase: v=>v, fromBase: v=>v, label:'Roll',         step:1 },
+  'Bag':    { family:'count',  baseUnit:'Bag',  toBase: v=>v, fromBase: v=>v, label:'Bag',          step:1 },
+  'Pouch':  { family:'count',  baseUnit:'Pouch',toBase: v=>v, fromBase: v=>v, label:'Pouch',        step:1 },
+  'Tablet': { family:'count',  baseUnit:'Tablet',toBase:v=>v, fromBase: v=>v, label:'Tablet',       step:1 },
+  'Strip':  { family:'count',  baseUnit:'Strip',toBase: v=>v, fromBase: v=>v, label:'Strip',        step:1 },
+};
+
+/* Family → list of issue units the supervisor can pick */
+const FAMILY_UNITS = {
+  liquid: ['ml', 'Litre'],
+  weight: ['g', 'Kg'],
+  count:  null,     /* null = only the exact containerUnit */
+};
+
+/* Get meta for a unit, with safe fallback */
+function getUnitMeta(unit) {
+  return UNIT_META[unit] || { family:'count', baseUnit:unit, toBase:v=>v, fromBase:v=>v, label:unit, step:1 };
+}
+
+/* Convert qty in issueUnit → base units stored in inventory */
+function issueToBase(qty, issueUnit) {
+  return getUnitMeta(issueUnit).toBase(qty);
+}
+
+/* Convert base units → human readable string */
+function baseToHuman(base, containerUnit) {
+  const m = getUnitMeta(containerUnit);
+  if (m.family === 'liquid') {
+    return base >= 1000
+      ? `${(base/1000).toFixed(3).replace(/\.?0+$/,'')} L`
+      : `${Math.round(base * 1000)/1000} ml`;
+  }
+  if (m.family === 'weight') {
+    return base >= 1000
+      ? `${(base/1000).toFixed(3).replace(/\.?0+$/,'')} Kg`
+      : `${Math.round(base * 1000)/1000} g`;
+  }
+  /* count */
+  return `${Math.round(base * 1000)/1000} ${containerUnit}`;
+}
+
+/* How many containers does base qty represent */
+function baseToContainers(base, containerSize, containerUnit) {
+  if (!containerSize || containerSize <= 0) return null;
+  const perContainer = issueToBase(containerSize, containerUnit); /* containerSize is in containerUnit */
+  return Math.round((base / perContainer) * 1000) / 1000;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GLOBALS
+   ═══════════════════════════════════════════════════════════════════════ */
+const db   = window.db;
+const auth = window.auth;
+let inventoryCache  = {};   /* id → Firestore doc data */
+let currentSupervisor = 'Supervisor';
+let currentDept = '';
+let selectedItem = null;    /* currently selected inventory item */
+
+/* ── Auth guard ── */
+auth.onAuthStateChanged(user => {
+  if (!user) { location.href = 'index.html'; return; }
+  currentSupervisor = localStorage.getItem('supervisorName') || user.email.split('@')[0];
+  document.getElementById('userName').textContent = currentSupervisor;
+
+  const deptMap = { 'me@jll.com':'ME', 'hk@jll.com':'HK', 'security@jll.com':'Security', 'ehs@jll.com':'EHS' };
+  currentDept = deptMap[user.email] || '';
+  if (currentDept) {
+    qs('#issueDept').value = currentDept;
+    loadCategories();
+  }
+  loadRecentIssues();
+});
+
+/* ── DOM refs ── */
+const issueDept     = qs('#issueDept');
+const issueCategory = qs('#issueCategory');
+const issueMaterial = qs('#issueMaterial');
+const issueUnit     = qs('#issueUnit');
+const issueQty      = qs('#issueQty');
+const issuePurpose  = qs('#issuePurpose');
+const issueRemarks  = qs('#issueRemarks');
+const issueMsg      = qs('#issueMsg');
+
+function setMsg(msg, ok = false) {
+  issueMsg.textContent = msg;
+  issueMsg.style.color = ok ? 'var(--success)' : 'var(--danger)';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LOAD CATEGORIES
+   ═══════════════════════════════════════════════════════════════════════ */
+async function loadCategories() {
+  issueCategory.innerHTML = '<option value="">Loading…</option>';
+  issueMaterial.innerHTML = '<option value="">Select Category first</option>';
+  resetUnitAndPreview();
+  try {
+    const snap = await db.collection('categories')
+      .where('department', '==', issueDept.value).get();
+    issueCategory.innerHTML = '<option value="">Select Category</option>';
+    if (snap.empty) {
+      issueCategory.innerHTML = '<option value="">No categories found</option>';
+      return;
+    }
+    snap.forEach(doc => {
+      const d = doc.data();
+      issueCategory.innerHTML += `<option value="${escapeHtml(d.categoryName)}">${escapeHtml(d.categoryName)}</option>`;
+    });
+  } catch(e) {
+    console.error('loadCategories:', e);
+    issueCategory.innerHTML = '<option value="">Error — check connection</option>';
+    toast('Failed to load categories', 'error');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LOAD MATERIALS
+   Shows available qty in the dropdown label so supervisor can see stock at a glance.
+   ═══════════════════════════════════════════════════════════════════════ */
+async function loadMaterials() {
+  issueMaterial.innerHTML = '<option value="">Loading…</option>';
+  resetUnitAndPreview();
+  inventoryCache = {};
+  try {
+    const snap = await db.collection('inventory')
+      .where('department', '==', issueDept.value)
+      .where('category',   '==', issueCategory.value).get();
+
+    issueMaterial.innerHTML = '<option value="">Select Material</option>';
+    if (snap.empty) {
+      issueMaterial.innerHTML = '<option value="">No materials found</option>';
+      return;
+    }
+    snap.forEach(doc => {
+      const d = doc.data();
+      inventoryCache[doc.id] = d;
+      const avail = d.availableQty ?? d.receivedQty ?? 0;
+      const display = baseToHuman(avail, d.containerUnit);
+      /* Stock indicator emoji in dropdown */
+      const total = d.totalQty ?? avail;
+      const pct   = total > 0 ? (avail / total) * 100 : 0;
+      const emoji = pct > 40 ? '🟢' : pct > 15 ? '🟡' : '🔴';
+      issueMaterial.innerHTML += `<option value="${doc.id}">${emoji} ${escapeHtml(d.materialName)} — ${escapeHtml(display)} left</option>`;
+    });
+  } catch(e) {
+    console.error('loadMaterials:', e);
+    issueMaterial.innerHTML = '<option value="">Error loading</option>';
+    toast('Failed to load materials', 'error');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   POPULATE UNITS — THE CORE FIX
+   ═══════════════════════════════════════════════════════════════════════
+   Rules:
+   1. Determine the containerUnit family from inventory.
+   2. Offer ONLY units within that family.
+   3. For count items: only the exact containerUnit (no sub-units).
+   4. Set the qty input step to match the unit precision.
+   5. Show stock info panel.
+   ═══════════════════════════════════════════════════════════════════════ */
+function populateUnits() {
+  resetUnitAndPreview();
+  setMsg('');
+
+  selectedItem = inventoryCache[issueMaterial.value];
+  if (!selectedItem) return;
+
+  const cUnit  = selectedItem.containerUnit || 'Nos';
+  const meta   = getUnitMeta(cUnit);
+  const family = meta.family;
+
+  /* Build the allowed unit list */
+  let allowedUnits = [];
+  if (family === 'liquid') {
+    /* Offer both ml and Litre. Put the native unit first. */
+    allowedUnits = cUnit === 'ml' ? ['ml', 'Litre'] : ['Litre', 'ml'];
+  } else if (family === 'weight') {
+    allowedUnits = cUnit === 'g' ? ['g', 'Kg'] : ['Kg', 'g'];
+  } else {
+    /* count — ONLY the exact unit the admin chose */
+    allowedUnits = [cUnit];
+  }
+
+  /* Populate the dropdown */
+  issueUnit.innerHTML = '<option value="">Select Unit</option>';
+  allowedUnits.forEach(u => {
+    const m = getUnitMeta(u);
+    issueUnit.innerHTML += `<option value="${u}">${m.label}</option>`;
+  });
+
+  /* Auto-select the first (native) unit */
+  issueUnit.value = allowedUnits[0];
+
+  /* Show family hint */
+  const familyLabels = { liquid:'Liquid', weight:'Weight', count:'Count' };
+  qs('#unitHint').textContent = `(${familyLabels[family]})`;
+
+  /* Update step on qty input */
+  const firstMeta = getUnitMeta(allowedUnits[0]);
+  issueQty.step = firstMeta.step;
+  issueQty.placeholder = firstMeta.step === 1 ? '0' : '0.000';
+
+  /* Show available stock panel */
+  renderStockPanel();
+  updatePreview();
+}
+
+/* Update qty input step when unit changes */
+issueUnit.addEventListener('change', () => {
+  const u = issueUnit.value;
+  if (!u) return;
+  const m = getUnitMeta(u);
+  issueQty.step = m.step;
+  issueQty.placeholder = m.step === 1 ? '0' : '0.000';
+  updatePreview();
+});
+
+issueQty.addEventListener('input', updatePreview);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RENDER STOCK PANEL
+   ═══════════════════════════════════════════════════════════════════════ */
+function renderStockPanel() {
+  if (!selectedItem) return;
+
+  const cUnit      = selectedItem.containerUnit || 'Nos';
+  const avail      = selectedItem.availableQty ?? selectedItem.receivedQty ?? 0;
+  const total      = selectedItem.totalQty ?? selectedItem.receivedQty ?? avail;
+  const pct        = total > 0 ? Math.min(100, Math.round((avail / total) * 100)) : 0;
+  const containers = baseToContainers(avail, selectedItem.containerSize, cUnit);
+  const threshold  = selectedItem.threshold || 0;
+
+  /* Status */
+  const isLow   = pct <= 40 || (threshold > 0 && avail < threshold);
+  const isCrit  = pct <= 15 || (threshold > 0 && avail < threshold * 0.5);
+  const status  = isCrit ? 'crit' : isLow ? 'low' : 'ok';
+  const statusTxt = isCrit ? '🔴 Critical' : isLow ? '⚠️ Low Stock' : '✅ Good';
+
+  qs('#infoName').textContent = selectedItem.materialName;
+  qs('#infoCatDept').textContent = `${selectedItem.category} · ${selectedItem.department}`;
+  qs('#infoAvail').textContent = baseToHuman(avail, cUnit);
+  qs('#infoContainers').textContent =
+    containers !== null
+      ? `${containers} × ${selectedItem.containerSize} ${cUnit} container${containers !== 1 ? 's' : ''}`
+      : '';
+  qs('#stockLbl').textContent = statusTxt;
+  qs('#stockLbl').className = `stock-lbl ${status}`;
+  qs('#stockBar').style.width = `${pct}%`;
+  qs('#stockBar').className = `stock-bar bar-${status}`;
+  qs('#stockPct').textContent = `${pct}%`;
+
+  /* Max qty hint */
+  const maxInIssueUnit = issueUnit.value
+    ? (() => {
+        const iMeta = getUnitMeta(issueUnit.value);
+        /* How much can be issued in the chosen unit? */
+        /* avail is in base; convert back to issue unit */
+        const cMeta = getUnitMeta(cUnit);
+        /* avail (base) → issue unit */
+        const availInIssueUnit = iMeta.fromBase(avail);
+        return availInIssueUnit;
+      })()
+    : null;
+
+  if (maxInIssueUnit !== null) {
+    const formatted = Math.floor(maxInIssueUnit * 1000) / 1000;
+    qs('#maxHint').textContent = `(max ${formatted} ${issueUnit.value})`;
+    issueQty.max = formatted;
+  } else {
+    qs('#maxHint').textContent = '';
+    issueQty.removeAttribute('max');
+  }
+
+  qs('#matInfo').style.display = '';
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LIVE ISSUE PREVIEW
+   Shows the supervisor exactly what will be deducted before they submit.
+   ═══════════════════════════════════════════════════════════════════════ */
+function updatePreview() {
+  /* Also refresh max hint when unit changes */
+  if (selectedItem && issueUnit.value) renderStockPanel();
+
+  const previewEl = qs('#issuePreview');
+  const previewTxt = qs('#previewTxt');
+
+  if (!selectedItem || !issueUnit.value) {
+    previewEl.className = 'issue-preview';
+    return;
+  }
+
+  const qty = parseFloat(issueQty.value);
+  if (!qty || qty <= 0) {
+    previewEl.className = 'issue-preview';
+    return;
+  }
+
+  const cUnit     = selectedItem.containerUnit || 'Nos';
+  const issuedBase = issueToBase(qty, issueUnit.value);
+  const avail      = selectedItem.availableQty ?? selectedItem.receivedQty ?? 0;
+  const remaining  = avail - issuedBase;
+  const isOver     = issuedBase > avail;
+
+  /* Human-readable quantities */
+  const issuedHuman    = baseToHuman(issuedBase, cUnit);
+  const remainingHuman = baseToHuman(Math.max(0, remaining), cUnit);
+
+  /* Container count */
+  const containers = baseToContainers(issuedBase, selectedItem.containerSize, cUnit);
+  const contStr    = containers !== null
+    ? ` (${Math.round(containers * 1000)/1000} container${containers !== 1 ? 's' : ''})`
+    : '';
+
+  if (isOver) {
+    previewTxt.innerHTML =
+      `❌ Cannot issue <strong>${qty} ${issueUnit.value}</strong> = ${issuedHuman}${contStr}<br>
+       <span class="preview-warn">Only ${baseToHuman(avail, cUnit)} available</span>`;
+    previewEl.className = 'issue-preview visible over-stock';
+  } else {
+    previewTxt.innerHTML =
+      `Issuing <strong>${qty} ${issueUnit.value}</strong> = ${issuedHuman}${contStr}<br>
+       <span class="preview-warn" style="color:#86efac">After issue: ${remainingHuman} remaining</span>`;
+    previewEl.className = 'issue-preview visible';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SUBMIT ISSUE
+   ═══════════════════════════════════════════════════════════════════════ */
+qs('#btnIssue').addEventListener('click', async () => {
+  setMsg('');
+  const dept    = issueDept.value;
+  const cat     = issueCategory.value;
+  const mid     = issueMaterial.value;
+  const unit    = issueUnit.value;
+  const qty     = parseFloat(issueQty.value || 0);
+  const purpose = issuePurpose.value.trim();
+  const remarks = issueRemarks.value.trim();
+
+  /* Validation */
+  if (!dept)    { setMsg('Please select a department'); return; }
+  if (!cat)     { setMsg('Please select a category'); return; }
+  if (!mid)     { setMsg('Please select a material'); return; }
+  if (!unit)    { setMsg('Please select a unit'); return; }
+  if (!qty || qty <= 0) { setMsg('Please enter a valid quantity'); return; }
+
+  const item = selectedItem || inventoryCache[mid];
+  if (!item) { setMsg('Item not found — please reload the page'); return; }
+
+  /* Convert to base units using correct unit family conversion */
+  const issuedBase = issueToBase(qty, unit);
+  const available  = item.availableQty ?? item.receivedQty ?? 0;
+
+  /* Stock check in base units */
+  if (issuedBase > available) {
+    setMsg(`Insufficient stock — only ${baseToHuman(available, item.containerUnit)} available`);
+    return;
+  }
+
+  /* Sanity: ensure unit family matches inventory unit family */
+  const issueFamily = getUnitMeta(unit).family;
+  const invFamily   = getUnitMeta(item.containerUnit || 'Nos').family;
+  if (issueFamily !== invFamily) {
+    /* This should never happen if populateUnits() is working, but belt-and-suspenders */
+    setMsg(`Unit mismatch: cannot issue in ${unit} from a ${item.containerUnit} inventory`);
+    return;
+  }
+
+  const btn = qs('#btnIssue');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting…';
+
+  try {
+    /* 1. Log the issued item with full detail */
+    await db.collection('issuedItems').add({
+      materialId:           mid,
+      materialName:         item.materialName,
+      department:           dept,
+      category:             cat,
+      /* Store both the human qty (what the supervisor entered) and base qty (what was deducted) */
+      issuedQty:            qty,
+      issuedUnit:           unit,
+      issuedQtyDisplay:     `${qty} ${unit}`,          /* e.g. "2 Litre" */
+      deductedQtyInInvUnit: issuedBase,                /* e.g. 2000 (ml) */
+      inventoryUnit:        item.containerUnit || unit, /* e.g. "Litre" */
+      /* Readable deduction for logs */
+      deductedDisplay:      baseToHuman(issuedBase, item.containerUnit || unit), /* e.g. "2 L" */
+      purpose,
+      remarks,
+      supervisor:           currentSupervisor,
+      date:                 new Date().toISOString().split('T')[0],
+      timestamp:            firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    /* 2. Deduct from inventory — transaction for safety */
+    await db.runTransaction(async tx => {
+      const ref  = db.collection('inventory').doc(mid);
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new Error('Inventory item not found');
+      const cur      = snap.data();
+      const newAvail = (cur.availableQty ?? cur.receivedQty ?? 0) - issuedBase;
+      if (newAvail < 0) throw new Error('Stock went negative — please refresh and retry');
+      tx.update(ref, {
+        availableQty: newAvail,
+        receivedQty:  newAvail,   /* keep both fields in sync */
+        updatedAt:    firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+
+    toast(`✅ Issued ${qty} ${unit} of ${item.materialName}`);
+    setMsg('Issued successfully!', true);
+
+    /* Reset form but keep dept + category for quick re-issue */
+    issueQty.value    = '';
+    issuePurpose.value = '';
+    issueRemarks.value = '';
+    resetUnitAndPreview();
+    issueMaterial.innerHTML = '<option value="">Select Material</option>';
+    inventoryCache  = {};
+    selectedItem    = null;
+    await loadMaterials();
+    loadRecentIssues();
+
+  } catch(err) {
+    console.error(err);
+    setMsg(err.message || 'Issue failed — please try again');
+    toast('Issue failed: ' + (err.message || 'Unknown error'), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Issue';
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RECENT ISSUES TODAY
+   ═══════════════════════════════════════════════════════════════════════ */
+async function loadRecentIssues() {
+  const el = document.getElementById('recentList');
+  const today = new Date(); today.setHours(0,0,0,0);
+  try {
+    const snap = await db.collection('issuedItems')
+      .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(today))
+      .orderBy('timestamp', 'desc')
+      .get();
+
+    if (snap.empty) {
+      el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--gray-500);font-size:13px;">
+        <i class="fa-solid fa-box-open" style="font-size:24px;opacity:.3;display:block;margin-bottom:8px;"></i>
+        No materials issued today yet
+      </div>`;
+      return;
+    }
+
+    el.innerHTML = '';
+    let n = 0;
+    snap.forEach(doc => {
+      if (n >= 8) return;
+      const d = doc.data();
+
+      /*
+       * Display the issued qty in human-readable form.
+       * Prefer issuedQtyDisplay (e.g. "2 Litre") if stored.
+       * Fall back to deductedDisplay (base units readable).
+       * Final fallback: compute from raw fields.
+       */
+      const displayQty = d.issuedQtyDisplay
+        || d.deductedDisplay
+        || baseToHuman(d.deductedQtyInInvUnit || 0, d.inventoryUnit || 'Nos');
+
+      const row = document.createElement('div');
+      row.className = 'issue-row';
+      row.style.animationDelay = `${n * 0.05}s`;
+      row.innerHTML = `
+        <div class="issue-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+        <div class="issue-body">
+          <div class="issue-name">${escapeHtml(d.materialName)}</div>
+          <div class="issue-meta">
+            ${escapeHtml(d.department)} · ${escapeHtml(d.purpose || 'No purpose stated')}
+            · by ${escapeHtml(d.supervisor || '—')}
+          </div>
+        </div>
+        <div class="issue-qty">−${escapeHtml(displayQty)}</div>`;
+      el.appendChild(row);
+      n++;
+    });
+  } catch(e) {
+    console.error('loadRecentIssues:', e);
+    el.innerHTML = `<div style="color:var(--danger);font-size:13px;padding:10px;text-align:center;">
+      Could not load recent issues
+    </div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════════════ */
+function resetUnitAndPreview() {
+  issueUnit.innerHTML  = '<option value="">Select Material first</option>';
+  qs('#unitHint').textContent = '';
+  qs('#maxHint').textContent  = '';
+  qs('#matInfo').style.display = 'none';
+  qs('#issuePreview').className = 'issue-preview';
+  issueQty.step        = '0.001';
+  issueQty.placeholder = '0';
+  issueQty.removeAttribute('max');
+}
+
+/* ── Events ── */
+issueDept.addEventListener('change', () => {
+  issueCategory.innerHTML = '<option value="">Select Dept first</option>';
+  issueMaterial.innerHTML = '<option value="">Select Category first</option>';
+  inventoryCache = {}; selectedItem = null;
+  resetUnitAndPreview(); setMsg('');
+  if (issueDept.value) loadCategories();
+});
+
+issueCategory.addEventListener('change', () => {
+  issueMaterial.innerHTML = '<option value="">Select Category first</option>';
+  inventoryCache = {}; selectedItem = null;
+  resetUnitAndPreview(); setMsg('');
+  if (issueCategory.value) loadMaterials();
+});
+
+issueMaterial.addEventListener('change', () => {
+  selectedItem = null;
+  resetUnitAndPreview(); setMsg('');
+  if (issueMaterial.value) populateUnits();
+});
+
+qs('#clearIssue').addEventListener('click', () => {
+  issueDept.value = currentDept || '';
+  issueCategory.innerHTML = '<option value="">Select Dept first</option>';
+  issueMaterial.innerHTML = '<option value="">Select Category first</option>';
+  issueQty.value = '';
+  issuePurpose.value = '';
+  issueRemarks.value = '';
+  issueMsg.textContent = '';
+  inventoryCache = {}; selectedItem = null;
+  resetUnitAndPreview();
+  if (issueDept.value) loadCategories();
+});
+
+qs('#refreshRecent').addEventListener('click', loadRecentIssues);
+</script>
+</body>
+</html>
