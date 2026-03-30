@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Vendor KPIs — Facility Dashboard</title>
+<link rel="stylesheet" href="kpi-style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/pptxgenjs@latest/dist/pptxgen.min.js"></script>
+<script src="kpi-config.js"></script>
+</head>
+<body>
+
+<header class="kpi-header">
+  <div class="brand">
+    <i class="fa-solid fa-truck"></i> Vendor KPIs
+    <span class="tag">Compliance & Visits</span>
+  </div>
+  <nav style="display:flex;gap:4px;">
+    <a href="index.html"><i class="fa-solid fa-house"></i> Overview</a>
+    <a href="kpi-activities.html"><i class="fa-solid fa-list-check"></i> Activities</a>
+    <a href="kpi-inventory.html"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
+    <a href="kpi-vendors.html" class="active"><i class="fa-solid fa-truck"></i> Vendors</a>
+    <a href="kpi-staff.html"><i class="fa-solid fa-users"></i> Staff</a>
+  </nav>
+</header>
+
+<main class="kpi-main">
+
+  <!-- HERO -->
+  <div class="page-hero" style="background:linear-gradient(135deg,#78350f,var(--warn));">
+    <div>
+      <h1><i class="fa-solid fa-truck"></i> Vendor Activity KPIs</h1>
+      <div class="hero-sub">Visit compliance · Outcome tracking · Frequency adherence · PPT reports</div>
+    </div>
+    <i class="fa-solid fa-handshake hero-icon"></i>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="card" style="padding:14px 18px;">
+    <div class="filters-bar">
+      <select id="periodFilter">
+        <option value="today">Today</option>
+        <option value="week">Last 7 Days</option>
+        <option value="month" selected>This Month</option>
+        <option value="quarter">This Quarter</option>
+      </select>
+      <label style="font-size:12px;font-weight:700;">
+        From: <input type="date" id="fromDate"/>
+      </label>
+      <label style="font-size:12px;font-weight:700;">
+        To: <input type="date" id="toDate"/>
+      </label>
+      <button class="btn btn-primary" id="applyBtn">
+        <i class="fa-solid fa-filter"></i> Apply
+      </button>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-excel" id="exportXls">
+          <i class="fa-solid fa-file-excel"></i> Excel
+        </button>
+        <button class="btn btn-ppt" id="exportPpt">
+          <i class="fa-solid fa-file-powerpoint"></i> PPT (Confirmed)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-row">
+    <div class="kpi-box k-total">
+      <div class="kpi-val" id="kScheduled">—</div>
+      <div class="kpi-lbl">Vendors Scheduled</div>
+    </div>
+    <div class="kpi-box k-ok">
+      <div class="kpi-val" id="kConfirmed">—</div>
+      <div class="kpi-lbl">Confirmed Visits</div>
+    </div>
+    <div class="kpi-box k-danger">
+      <div class="kpi-val" id="kPending">—</div>
+      <div class="kpi-lbl">Pending / Missed</div>
+    </div>
+    <div class="kpi-box k-blue">
+      <div class="kpi-val" id="kCompliance">—</div>
+      <div class="kpi-lbl">Compliance Rate</div>
+    </div>
+    <div class="kpi-box k-warn">
+      <div class="kpi-val" id="kPartial">—</div>
+      <div class="kpi-lbl">Partial Outcomes</div>
+    </div>
+    <div class="kpi-box" style="border-top:3px solid #7c3aed;">
+      <div class="kpi-val" style="color:#7c3aed;" id="kRescheduled">—</div>
+      <div class="kpi-lbl">Rescheduled</div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-pie"></i> Visit Outcome Breakdown
+      </div>
+      <div class="chart-wrap"><canvas id="outcomeChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-bar"></i> Compliance by Vendor
+      </div>
+      <div class="chart-wrap"><canvas id="vendorBarChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-line"></i> Monthly Compliance Trend
+      </div>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-clock-rotate-left"></i> Visit Frequency Adherence
+      </div>
+      <div class="chart-wrap"><canvas id="freqChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- VENDOR SCORECARD TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-star"></i> Vendor Compliance Scorecard
+      </div>
+      <button class="btn btn-excel btn-sm"
+        onclick="exportTableToExcel('vendorTable','VendorScorecard','Vendor_Scorecard.xlsx')">
+        <i class="fa-solid fa-file-excel"></i> Export
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table id="vendorTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vendor Name</th>
+            <th>Activity</th>
+            <th>Frequency</th>
+            <th>Expected Visits</th>
+            <th>Confirmed</th>
+            <th>Compliance %</th>
+            <th>Last Visit</th>
+            <th>Typical Outcome</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="vendorBody">
+          <tr><td colspan="10"><div class="loader"><div class="spinner"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- VISIT LOG TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-table-list"></i> Vendor Visit Log
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="outcomeFilter" style="padding:6px 10px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:13px;">
+          <option value="All">All Outcomes</option>
+          <option value="Completed">Completed</option>
+          <option value="Partial">Partial</option>
+          <option value="Rescheduled">Rescheduled</option>
+        </select>
+        <button class="btn btn-excel btn-sm"
+          onclick="exportTableToExcel('visitLogTable','VisitLog','Vendor_Visit_Log.xlsx')">
+          <i class="fa-solid fa-file-excel"></i> Export
+        </button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="visitLogTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Date & Time</th><th>Vendor</th>
+            <th>Activity</th><th>Confirmed By</th>
+            <th>Shift</th><th>Outcome</th><th>Photos</th><th>PPT</th>
+          </tr>
+        </thead>
+        <tbody id="visitLogBody">
+          <tr><td colspan="9"><div class="loader"><div class="spinner"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const db = initKpiFirebase();
+let schedules = [], submissions = [], charts = {};
+let filtered = [];
+
+/* ── Default dates ── */
+const now = new Date();
+document.getElementById('toDate').value   = now.toISOString().slice(0,10);
+const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+document.getElementById('fromDate').value = mStart.toISOString().slice(0,10);
+
+document.getElementById('applyBtn').addEventListener('click', load);
+document.getElementById('outcomeFilter').addEventListener('change', renderVisitLog);
+document.getElementById('exportXls').addEventListener('click', exportExcel);
+document.getElementById('exportPpt').addEventListener('click', exportPPT);
+load();
+
+/* ════════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════════ */
+function getWeekNum(d) {
+  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  dt.setUTCDate(dt.getUTCDate() + 4 - (dt.getUTCDay() || 7));
+  const yr = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  return Math.ceil((((dt - yr) / 864e5) + 1) / 7);
+}
+function getFortnight(d) { return d.getDate() <= 15 ? 1 : 2; }
+
+function wasConfirmedInPeriod(activityName, subs, start, end, freq) {
+  return subs.some(sub => {
+    if (sub.activityName !== activityName) return false;
+    if (!sub.photos?.length) return false;
+    const dt = sub.timestamp?.toDate ? sub.timestamp.toDate() : parseDate(sub.date);
+    if (!dt) return false;
+    if (freq === 'Weekly') {
+      return getWeekNum(dt) === getWeekNum(now) && dt.getFullYear() === now.getFullYear();
+    }
+    if (freq === 'Bimonthly') {
+      return getFortnight(dt) === getFortnight(now) && dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
+    }
+    return dt >= start && dt <= end;
+  });
+}
+
+function countExpectedVisits(freq, start, end) {
+  const msPerDay = 864e5;
+  const days = Math.ceil((end - start) / msPerDay) + 1;
+  if (freq === 'Daily')     return days;
+  if (freq === 'Weekly')    return Math.ceil(days / 7);
+  if (freq === 'Bimonthly') return Math.ceil(days / 15);
+  if (freq === 'Monthly')   return Math.ceil(days / 30);
+  return 1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   LOAD DATA
+════════════════════════════════════════════════════════════ */
+async function load() {
+  const period = document.getElementById('periodFilter').value;
+  const fromV  = document.getElementById('fromDate').value;
+  const toV    = document.getElementById('toDate').value;
+  let start, end;
+  if (fromV && toV) {
+    start = new Date(fromV + 'T00:00:00');
+    end   = new Date(toV   + 'T23:59:59');
+  } else {
+    const r = getDateRange(period);
+    start = r.start; end = r.end;
+  }
+
+  try {
+    const startTs = firebase.firestore.Timestamp.fromDate(start);
+    const endTs   = firebase.firestore.Timestamp.fromDate(end);
+
+    const [schSnap, subSnap] = await Promise.all([
+      db.collection('activitySchedules').where('activityType', '==', 'vendor').get(),
+      db.collection('submissions')
+        .where('timestamp', '>=', startTs)
+        .where('timestamp', '<=', endTs)
+        .get()
+    ]);
+
+    schedules   = schSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    submissions = subSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => r.activityType === 'vendor' || r.department === 'Vendor');
+    filtered    = submissions;
+
+    renderAll(start, end);
+  } catch(e) {
+    console.error('Vendor load error:', e);
+    alert('Failed to load vendor data: ' + e.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════════════════════════ */
+function renderAll(start, end) {
+  /* KPIs */
+  const confirmed    = submissions.filter(r => r.photos?.length > 0).length;
+  const partial      = submissions.filter(r => r.vendorOutcome === 'Partial').length;
+  const rescheduled  = submissions.filter(r => r.vendorOutcome === 'Rescheduled').length;
+  const scheduled    = schedules.length;
+  const pending      = Math.max(0, scheduled - confirmed);
+  const compliance   = scheduled > 0 ? Math.round((confirmed / scheduled) * 100) : 0;
+
+  setText('kScheduled',   scheduled);
+  setText('kConfirmed',   confirmed);
+  setText('kPending',     pending);
+  setText('kCompliance',  compliance + '%');
+  setText('kPartial',     partial);
+  setText('kRescheduled', rescheduled);
+
+  /* Chart 1 — Outcome doughnut */
+  const completedCount = submissions.filter(r => r.photos?.length > 0 && (!r.vendorOutcome || r.vendorOutcome === 'Completed')).length;
+  drawChart('outcomeChart', 'doughnut', {
+    labels: ['Completed', 'Partial', 'Rescheduled', 'Pending'],
+    datasets: [{
+      data: [completedCount, partial, rescheduled, pending],
+      backgroundColor: [KPI_COLORS.green, KPI_COLORS.amber, KPI_COLORS.purple, KPI_COLORS.red],
+      borderWidth: 0
+    }]
+  }, { cutout: '55%', plugins: { legend: { position: 'bottom' } } });
+
+  /* Chart 2 — Compliance by vendor (horizontal bar) */
+  const vendorMap = {};
+  schedules.forEach(s => {
+    const key = s.vendorName || s.activityName || '?';
+    if (!vendorMap[key]) vendorMap[key] = { scheduled: 0, confirmed: 0 };
+    const exp = countExpectedVisits(s.frequency || 'Monthly', start, end);
+    vendorMap[key].scheduled += exp;
+    const confirmed = submissions.filter(r =>
+      (r.vendorName === s.vendorName || r.activityName === s.activityName) &&
+      r.photos?.length > 0
+    ).length;
+    vendorMap[key].confirmed += confirmed;
+  });
+  const vLabels = Object.keys(vendorMap);
+  const vConf   = vLabels.map(k => vendorMap[k].confirmed);
+  const vPend   = vLabels.map(k => Math.max(0, vendorMap[k].scheduled - vendorMap[k].confirmed));
+  drawChart('vendorBarChart', 'bar', {
+    labels: vLabels,
+    datasets: [
+      { label: 'Confirmed', data: vConf, backgroundColor: KPI_COLORS.green, borderRadius: 4 },
+      { label: 'Pending',   data: vPend, backgroundColor: KPI_COLORS.red,   borderRadius: 4 }
+    ]
+  }, { indexAxis: 'y', scales: { x: { stacked: true }, y: { stacked: true } }, plugins: { legend: { position: 'bottom' } } });
+
+  /* Chart 3 — Monthly trend (last 6 months) */
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i, 1);
+    months.push({ label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }), year: d.getFullYear(), month: d.getMonth() });
+  }
+  const mConf = months.map(m =>
+    submissions.filter(r => {
+      const dt = r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date);
+      return dt && dt.getFullYear() === m.year && dt.getMonth() === m.month && r.photos?.length > 0;
+    }).length
+  );
+  drawChart('trendChart', 'line', {
+    labels: months.map(m => m.label),
+    datasets: [{
+      label: 'Confirmed Visits',
+      data: mConf,
+      borderColor: KPI_COLORS.amber,
+      backgroundColor: 'rgba(217,119,6,.12)',
+      fill: true, tension: .35, pointRadius: 4, borderWidth: 2
+    }]
+  }, { scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }, plugins: { legend: { display: false } } });
+
+  /* Chart 4 — Frequency adherence (pie: weekly/bimonthly/monthly/other) */
+  const freqCount = {};
+  schedules.forEach(s => {
+    const f = s.frequency || 'Other';
+    freqCount[f] = (freqCount[f] || 0) + 1;
+  });
+  const freqLabels = Object.keys(freqCount);
+  drawChart('freqChart', 'doughnut', {
+    labels: freqLabels,
+    datasets: [{
+      data: freqLabels.map(f => freqCount[f]),
+      backgroundColor: KPI_PALETTE.slice(0, freqLabels.length),
+      borderWidth: 0
+    }]
+  }, { cutout: '50%', plugins: { legend: { position: 'bottom' } } });
+
+  /* Vendor Scorecard Table */
+  renderScorecardTable(start, end, vendorMap);
+
+  /* Visit Log */
+  renderVisitLog();
+}
+
+function renderScorecardTable(start, end, vendorMap) {
+  const body = document.getElementById('vendorBody');
+  body.innerHTML = '';
+
+  schedules.forEach((s, i) => {
+    const vName   = s.vendorName || '—';
+    const actName = s.activityName || '—';
+    const freq    = s.frequency || '—';
+    const exp     = countExpectedVisits(freq, start, end);
+    const conf    = submissions.filter(r =>
+      (r.vendorName === vName || r.activityName === actName) && r.photos?.length > 0
+    ).length;
+    const pct     = exp > 0 ? Math.min(100, Math.round((conf / exp) * 100)) : 0;
+
+    /* Last visit */
+    const relSubs = submissions
+      .filter(r => (r.vendorName === vName || r.activityName === actName) && r.photos?.length > 0)
+      .map(r => ({ dt: r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date) }))
+      .filter(r => r.dt).sort((a, b) => b.dt - a.dt);
+    const lastVisit = relSubs.length ? formatDate(relSubs[0].dt) : '—';
+
+    /* Typical outcome */
+    const outcomeCounts = {};
+    submissions.filter(r => r.vendorName === vName || r.activityName === actName)
+      .forEach(r => { const o = r.vendorOutcome || 'Completed'; outcomeCounts[o] = (outcomeCounts[o] || 0) + 1; });
+    const typical = Object.entries(outcomeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+    const cls   = pct >= 80 ? 'row-ok' : pct >= 50 ? 'row-warn' : 'row-danger';
+    const badge = pct >= 80
+      ? `<span class="badge b-ok">✅ On Track</span>`
+      : pct >= 50
+      ? `<span class="badge b-warn">⚠️ Lagging</span>`
+      : `<span class="badge b-danger">🔴 Critical</span>`;
+
+    body.insertAdjacentHTML('beforeend', `
+      <tr class="${cls}">
+        <td>${i + 1}</td>
+        <td class="bold">${esc(vName)}</td>
+        <td>${esc(actName)}</td>
+        <td><span class="badge b-gray">${esc(freq)}</span></td>
+        <td>${exp}</td>
+        <td style="color:var(--ok);font-weight:700;">${conf}</td>
+        <td>
+          <b>${pct}%</b>
+          <div class="prog-bar" style="margin-top:4px;">
+            <div class="prog-fill${pct < 50 ? ' p-danger' : pct < 80 ? ' p-warn' : ''}" style="width:${pct}%"></div>
+          </div>
+        </td>
+        <td>${esc(lastVisit)}</td>
+        <td><span class="badge ${typical === 'Completed' ? 'b-ok' : typical === 'Partial' ? 'b-warn' : 'b-danger'}">${esc(typical)}</span></td>
+        <td>${badge}</td>
+      </tr>`);
+  });
+
+  if (!schedules.length) {
+    body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--gray5);">No vendor schedules found</td></tr>';
+  }
+}
+
+function renderVisitLog() {
+  const outcomeF = document.getElementById('outcomeFilter').value;
+  const body     = document.getElementById('visitLogBody');
+  body.innerHTML = '';
+  let count = 0;
+
+  const show = outcomeF === 'All' ? filtered : filtered.filter(r => {
+    const o = r.vendorOutcome || (r.photos?.length > 0 ? 'Completed' : 'Pending');
+    return o === outcomeF;
+  });
+
+  show.slice().sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0))
+    .forEach((r, i) => {
+      const dt      = r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date || '');
+      const dtStr   = dt ? dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        + ' ' + dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
+      const outcome = r.vendorOutcome || (r.photos?.length > 0 ? 'Completed' : 'Pending');
+      const oBadge  = outcome === 'Completed'
+        ? `<span class="badge b-ok">✅ Completed</span>`
+        : outcome === 'Partial'
+        ? `<span class="badge b-warn">⚠️ Partial</span>`
+        : outcome === 'Rescheduled'
+        ? `<span class="badge" style="background:#ede9fe;color:#7c3aed;">📅 Rescheduled</span>`
+        : `<span class="badge b-danger">⏳ Pending</span>`;
+      const photos  = r.photos?.length || 0;
+      const pptBtn  = photos > 0
+        ? `<button class="btn btn-ppt btn-sm ppt-btn" data-id="${esc(r.id)}">
+             <i class="fa-solid fa-file-powerpoint"></i>
+           </button>`
+        : `<span style="font-size:11px;color:var(--gray5);">—</span>`;
+
+      body.insertAdjacentHTML('beforeend', `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${esc(dtStr)}</td>
+          <td class="bold">${esc(r.vendorName || r.activityName || '—')}</td>
+          <td>${esc(r.activityName || '—')}</td>
+          <td>${esc(r.supervisor || '—')}</td>
+          <td>${esc(r.shift || '—')}</td>
+          <td>${oBadge}</td>
+          <td><span class="badge ${photos > 0 ? 'b-teal' : 'b-gray'}">${photos} 📷</span></td>
+          <td>${pptBtn}</td>
+        </tr>`);
+      count++;
+    });
+
+  if (!count) {
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--gray5);">
+      No vendor visits for selected filters</td></tr>`;
+  }
+}
+
+/* PPT button delegation */
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('.ppt-btn');
+  if (!btn) return;
+  const rec = submissions.find(r => r.id === btn.dataset.id);
+  if (!rec) return;
+  await generateActivityPPT([rec], `${(rec.vendorName || rec.activityName || 'vendor').replace(/[^\w]/g, '_')}.pptx`);
+});
+
+/* Chart helper */
+function drawChart(id, type, data, extraOpts = {}) {
+  const ctx = document.getElementById(id).getContext('2d');
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type,
+    data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      ...extraOpts,
+      plugins: { ...(extraOpts.plugins || {}) },
+      scales: type === 'doughnut' ? undefined : { beginAtZero: true, ...(extraOpts.scales || {}) }
+    }
+  });
+}
+
+async function exportPPT() {
+  const recs = submissions.filter(r => r.photos?.length > 0);
+  if (!recs.length) { alert('No confirmed vendor visits with photos'); return; }
+  await generateActivityPPT(recs, `Vendor_KPI_${new Date().toISOString().slice(0, 10)}.pptx`);
+}
+
+function exportExcel() {
+  exportToExcel([
+    {
+      name: 'Vendor Scorecard',
+      data: schedules.map(s => {
+        const conf = submissions.filter(r =>
+          (r.vendorName === s.vendorName || r.activityName === s.activityName) && r.photos?.length > 0
+        ).length;
+        return {
+          VendorName: s.vendorName || '—',
+          Activity:   s.activityName || '—',
+          Frequency:  s.frequency || '—',
+          Confirmed:  conf,
+          Scheduled:  1,
+          CompliancePct: conf > 0 ? '100%' : '0%'
+        };
+      })
+    },
+    {
+      name: 'Visit Log',
+      data: submissions.map(r => {
+        const dt = r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date || '');
+        return {
+          Date:        dt ? formatDate(dt) : '—',
+          Vendor:      r.vendorName || r.activityName || '—',
+          Activity:    r.activityName || '—',
+          ConfirmedBy: r.supervisor || '—',
+          Shift:       r.shift || '—',
+          Outcome:     r.vendorOutcome || (r.photos?.length > 0 ? 'Completed' : 'Pending'),
+          Photos:      r.photos?.length || 0,
+          Notes:       r.notes || ''
+        };
+      })
+    }
+  ], `Vendor_KPI_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+</script>
+</body>
+</html>

@@ -155,6 +155,46 @@
       color: var(--t6); font-size: 11px; font-weight: 700;
       padding: 3px 10px; border-radius: 99px; margin-bottom: 18px;
     }
+  /* ── Step 2: Shift Selection ── */
+  .step2 { display:none; }
+  .step2-title { text-align:center; font-size:18px; font-weight:800; color:var(--gray9); margin-bottom:4px; }
+  .step2-sub   { text-align:center; font-size:13px; color:var(--gray5); margin-bottom:20px; }
+
+  /* Supervisor name display pill */
+  .sup-pill {
+    display:flex; align-items:center; gap:10px; padding:12px 16px;
+    background:var(--t0); border:1.5px solid var(--t1); border-radius:14px;
+    margin-bottom:20px;
+  }
+  .sup-avatar {
+    width:40px; height:40px; border-radius:50%;
+    background:linear-gradient(135deg,var(--t7),var(--t4));
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:800; color:#fff; flex-shrink:0;
+  }
+  .sup-info { flex:1; min-width:0; }
+  .sup-name { font-size:15px; font-weight:800; color:var(--gray9); }
+  .sup-dept { font-size:12px; color:var(--gray5); margin-top:1px; }
+
+  /* Shift buttons */
+  .shift-label { font-size:11px; font-weight:700; text-transform:uppercase;
+                 letter-spacing:.5px; color:var(--gray5); margin-bottom:10px; display:block; }
+  .shift-grid  { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:20px; }
+  .shift-btn {
+    padding:14px 8px; border-radius:12px; border:1.5px solid var(--gray2);
+    background:#fafafa; font-family:var(--font); font-size:13px; font-weight:700;
+    color:var(--gray5); cursor:pointer; transition:.18s; text-align:center;
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+  }
+  .shift-btn .shift-icon { font-size:22px; }
+  .shift-btn .shift-time { font-size:10px; font-weight:600; opacity:.65; }
+  .shift-btn:hover { border-color:var(--t4); background:var(--t0); color:var(--t6); }
+  .shift-btn.selected {
+    background:linear-gradient(135deg,var(--t7),var(--t5));
+    border-color:var(--t5); color:#fff;
+    box-shadow:0 4px 14px rgba(13,100,100,.3);
+  }
+  .shift-btn.selected .shift-time { opacity:.8; }
   </style>
 </head>
 <body>
@@ -162,58 +202,136 @@
     <div class="pwa-badge" style="display:flex;justify-content:center;">
       <i class="fa-solid fa-mobile-screen-button"></i> Facility Management PWA
     </div>
-    <div class="login-logo">🏗️</div>
-    <h1 class="login-title">Welcome Back</h1>
-    <p class="login-sub">Sign in to your supervisor account</p>
 
-    <div class="field">
-      <label>Email Address</label>
-      <div class="input-wrap">
-        <i class="fa-regular fa-envelope"></i>
-        <input id="email" type="email" placeholder="you@jll.com" autocomplete="email"/>
+    <!-- ═══════════ STEP 1: Email + Password ═══════════ -->
+    <div id="step1">
+      <div class="login-logo">🏗️</div>
+      <h1 class="login-title">Welcome Back</h1>
+      <p class="login-sub">Sign in to your supervisor account</p>
+
+      <div class="field">
+        <label>Email Address</label>
+        <div class="input-wrap">
+          <i class="fa-regular fa-envelope"></i>
+          <input id="email" type="email" placeholder="you@jll.com" autocomplete="email"/>
+        </div>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="input-wrap">
+          <i class="fa-solid fa-lock"></i>
+          <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password"/>
+          <button class="eye-btn" id="eyeBtn" type="button" tabindex="-1">
+            <i class="fa-regular fa-eye" id="eyeIcon"></i>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn-login" id="loginBtn">
+        <span class="btn-text"><i class="fa-solid fa-right-to-bracket"></i> Sign In</span>
+        <div class="spinner"></div>
+      </button>
+      <button class="btn-install" id="installBtn">
+        <i class="fa-solid fa-download"></i> Install App
+      </button>
+
+      <div class="error-msg" id="loginMsg"></div>
+
+      <div class="login-footer">
+        Admin creates supervisor accounts<br>
+        © 2025 Facility Management — JLL
       </div>
     </div>
-    <div class="field">
-      <label>Password</label>
-      <div class="input-wrap">
-        <i class="fa-solid fa-lock"></i>
-        <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password"/>
-        <button class="eye-btn" id="eyeBtn" type="button" tabindex="-1">
-          <i class="fa-regular fa-eye" id="eyeIcon"></i>
+
+    <!-- ═══════════ STEP 2: Select Your Shift ═══════════ -->
+    <div id="step2" class="step2">
+
+      <!-- Supervisor identity (read from localStorage — their own phone) -->
+      <div class="sup-pill">
+        <div class="sup-avatar" id="supAvatar">?</div>
+        <div class="sup-info">
+          <div class="sup-name" id="supName">—</div>
+          <div class="sup-dept" id="supDept">—</div>
+        </div>
+      </div>
+
+      <!-- Shift selection — REQUIRED every login -->
+      <span class="shift-label">⏰ Select Your Shift <span style="color:var(--danger)">*</span></span>
+      <div class="shift-grid">
+        <button class="shift-btn" data-shift="Morning" data-label="6 AM – 2 PM">
+          <span class="shift-icon">🌅</span>
+          Morning
+          <span class="shift-time">6 AM – 2 PM</span>
+        </button>
+        <button class="shift-btn" data-shift="Afternoon" data-label="2 PM – 9 PM">
+          <span class="shift-icon">☀️</span>
+          Afternoon
+          <span class="shift-time">2 PM – 9 PM</span>
+        </button>
+        <button class="shift-btn" data-shift="Night" data-label="9 PM – 6 AM">
+          <span class="shift-icon">🌙</span>
+          Night
+          <span class="shift-time">9 PM – 6 AM</span>
+        </button>
+        <button class="shift-btn" data-shift="General" data-label="Full day">
+          <span class="shift-icon">📋</span>
+          General
+          <span class="shift-time">Full day</span>
+        </button>
+      </div>
+
+      <div class="error-msg" id="shiftMsg"></div>
+
+      <button class="btn-login" id="confirmShiftBtn">
+        <span class="btn-text"><i class="fa-solid fa-play"></i> Start Shift</span>
+        <div class="spinner"></div>
+      </button>
+
+      <!-- Not you? link -->
+      <div style="text-align:center;margin-top:14px;">
+        <button id="notYouBtn" style="background:none;border:none;color:var(--gray5);
+          font-family:var(--font);font-size:12px;cursor:pointer;text-decoration:underline;">
+          Not you? Enter a different name
         </button>
       </div>
     </div>
 
-    <button class="btn-login" id="loginBtn">
-      <span class="btn-text"><i class="fa-solid fa-right-to-bracket"></i> Sign In</span>
-      <div class="spinner"></div>
-    </button>
-    <button class="btn-install" id="installBtn">
-      <i class="fa-solid fa-download"></i> Install App
-    </button>
+    <!-- ═══════════ NAME EDIT (hidden, shown if "Not you" clicked) ═══════════ -->
+    <div id="stepName" class="step2">
+      <div class="login-logo" style="font-size:22px;">✏️</div>
+      <h2 class="step2-title" style="margin-bottom:4px;">Update Your Name</h2>
+      <p class="step2-sub">This name is saved on this phone.<br>You won't need to enter it again.</p>
 
-    <div class="error-msg" id="loginMsg"></div>
+      <div class="field" style="margin-bottom:16px;">
+        <label>Your Full Name <span style="color:var(--danger)">*</span></label>
+        <div class="input-wrap">
+          <i class="fa-solid fa-user-tie"></i>
+          <input id="nameEditInput" type="text" placeholder="e.g. Rahul Sharma"
+            autocomplete="name" style="padding-left:38px;"/>
+        </div>
+      </div>
 
-    <div class="login-footer">
-      Admin creates supervisor accounts<br>
-      © 2025 Facility Management — JLL
+      <button class="btn-login" id="saveNameBtn">
+        <span class="btn-text"><i class="fa-solid fa-floppy-disk"></i> Save Name & Continue</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="error-msg" id="nameEditMsg"></div>
+
+      <div style="text-align:center;margin-top:14px;">
+        <button id="backToShiftBtn" style="background:none;border:none;color:var(--gray5);
+          font-family:var(--font);font-size:12px;cursor:pointer;text-decoration:underline;">
+          ← Back to shift selection
+        </button>
+      </div>
     </div>
-  </div>
+
+  </div><!-- end login-card -->
 
   <script>
-    /* Service Worker */
+    /* ── Service Worker ── */
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js');
 
-    /* Password toggle */
-    document.getElementById('eyeBtn').addEventListener('click', () => {
-      const inp = document.getElementById('password');
-      const ico = document.getElementById('eyeIcon');
-      const show = inp.type === 'password';
-      inp.type = show ? 'text' : 'password';
-      ico.className = show ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
-    });
-
-    /* PWA install */
+    /* ── PWA install ── */
     let deferredPrompt;
     const installBtn = document.getElementById('installBtn');
     window.addEventListener('beforeinstallprompt', e => {
@@ -228,14 +346,42 @@
       deferredPrompt = null;
     });
 
-    /* Department map */
+    /* ── Password toggle ── */
+    document.getElementById('eyeBtn').addEventListener('click', () => {
+      const inp = document.getElementById('password');
+      const ico = document.getElementById('eyeIcon');
+      const show = inp.type === 'password';
+      inp.type = show ? 'text' : 'password';
+      ico.className = show ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+    });
+
+    /* ── Department map ── */
     const DEPT_MAP = {
       'hk@jll.com': 'H&K', 'me@jll.com': 'M&E',
       'security@jll.com': 'Security', 'ehs@jll.com': 'EHS'
     };
 
-    /* Login */
-    document.getElementById('loginBtn').addEventListener('click', async () => {
+    /* ══════════════════════════════════════════════════════════════
+       STORAGE DESIGN
+       localStorage.supervisorName  → permanent on THIS phone (owner's name)
+       localStorage.email           → last logged-in email
+       sessionStorage.supervisorName → current session (same as localStorage here,
+                                       but cleared when tab closes — belt+suspenders)
+       sessionStorage.supervisorShift → shift for this session
+       sessionStorage.supervisorShiftLabel → "Morning (6 AM – 2 PM)" full label
+       sessionStorage.supervisorDept  → dept for this session
+       Firestore: shifts/{shiftDocId} → shift log for KPIs
+    ══════════════════════════════════════════════════════════════ */
+
+    let verifiedEmail = '';
+    let verifiedDept  = '';
+    let selectedShift = '';
+    let selectedShiftLabel = '';
+
+    /* ══════════════════════════════════════════════════════════════
+       STEP 1 — Firebase sign-in
+    ══════════════════════════════════════════════════════════════ */
+    async function doLogin() {
       const email = document.getElementById('email').value.trim().toLowerCase();
       const pass  = document.getElementById('password').value;
       const msg   = document.getElementById('loginMsg');
@@ -248,48 +394,200 @@
 
       try {
         await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-        const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+        await firebase.auth().signInWithEmailAndPassword(email, pass);
+        verifiedEmail = email;
+        verifiedDept  = DEPT_MAP[email] || 'General';
 
-        /* Load display name from Firestore, fall back to localStorage prompt */
-        let displayName = localStorage.getItem('supervisorName');
-        try {
-          const uDoc = await firebase.firestore().collection('users').doc(cred.user.uid).get();
-          if (uDoc.exists && uDoc.data().displayName) displayName = uDoc.data().displayName;
-        } catch(e) {}
+        /* ── Read stored name from localStorage (their own phone) ── */
+        const storedName = localStorage.getItem('supervisorName') || '';
 
-        if (!displayName || !displayName.trim()) {
-          displayName = prompt('Enter your name (shown on reports):') || 'Supervisor';
-          /* Persist to Firestore */
-          try {
-            await firebase.firestore().collection('users').doc(cred.user.uid).set({
-              email, department: DEPT_MAP[email] || 'General', displayName: displayName.trim()
-            }, { merge: true });
-          } catch(e) {}
+        /* ── Always go to Step 2 (shift selection) ── */
+        document.getElementById('step1').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
+        document.getElementById('step2').style.animation = 'cardIn .4s ease';
+
+        /* Show supervisor identity pill */
+        if (storedName) {
+          document.getElementById('supName').textContent = storedName;
+          document.getElementById('supAvatar').textContent = storedName.charAt(0).toUpperCase();
+        } else {
+          /* No name stored yet (first time on this phone) — go straight to name entry */
+          document.getElementById('step2').style.display = 'none';
+          showNameEntry();
         }
+        document.getElementById('supDept').textContent = `${verifiedDept} Department`;
 
-        localStorage.setItem('supervisorName', displayName.trim());
-        localStorage.setItem('supervisorDept', DEPT_MAP[email] || 'General');
-        localStorage.setItem('email', email);
+        /* Auto-select shift based on current time */
+        autoSelectShift();
 
-        window.location.href = 'Home.html';
       } catch(err) {
         btn.classList.remove('loading'); btn.disabled = false;
         const friendly = {
-          'auth/user-not-found': 'No account found for this email.',
-          'auth/wrong-password': 'Incorrect password.',
-          'auth/invalid-email': 'Invalid email format.',
-          'auth/too-many-requests': 'Too many attempts. Try again later.'
+          'auth/user-not-found':     'No account found for this email.',
+          'auth/wrong-password':     'Incorrect password.',
+          'auth/invalid-email':      'Invalid email format.',
+          'auth/too-many-requests':  'Too many attempts. Try again later.',
+          'auth/invalid-credential': 'Incorrect email or password.'
         };
         msg.textContent = friendly[err.code] || err.message;
       }
-    });
+    }
 
-    /* Enter key submits */
+    document.getElementById('loginBtn').addEventListener('click', doLogin);
     ['email','password'].forEach(id =>
       document.getElementById(id).addEventListener('keydown', e => {
-        if (e.key === 'Enter') document.getElementById('loginBtn').click();
+        if (e.key === 'Enter') doLogin();
       })
     );
+
+    /* ── Auto-select shift based on current hour ── */
+    function autoSelectShift() {
+      const hr = new Date().getHours();
+      let autoShift = 'General';
+      if (hr >= 6  && hr < 14) autoShift = 'Morning';
+      if (hr >= 14 && hr < 22) autoShift = 'Afternoon';
+      if (hr >= 22 || hr < 6)  autoShift = 'Night';
+
+      document.querySelectorAll('.shift-btn').forEach(btn => {
+        if (btn.dataset.shift === autoShift) {
+          btn.classList.add('selected');
+          selectedShift      = btn.dataset.shift;
+          selectedShiftLabel = `${btn.dataset.shift} (${btn.dataset.label})`;
+        }
+      });
+    }
+
+    /* ── Shift button selection ── */
+    document.querySelectorAll('.shift-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        selectedShift      = btn.dataset.shift;
+        selectedShiftLabel = `${btn.dataset.shift} (${btn.dataset.label})`;
+        document.getElementById('shiftMsg').textContent = '';
+      });
+    });
+
+    /* ══════════════════════════════════════════════════════════════
+       STEP 2 — Confirm shift and log to Firestore
+    ══════════════════════════════════════════════════════════════ */
+    document.getElementById('confirmShiftBtn').addEventListener('click', confirmShift);
+
+    async function confirmShift() {
+      const shiftMsg = document.getElementById('shiftMsg');
+      const btn      = document.getElementById('confirmShiftBtn');
+
+      if (!selectedShift) {
+        shiftMsg.textContent = '⚠ Please select your shift to continue';
+        return;
+      }
+
+      const supName = localStorage.getItem('supervisorName') || '';
+      if (!supName) { showNameEntry(); return; }
+
+      btn.classList.add('loading'); btn.disabled = true;
+
+      /* ── Save to sessionStorage (current session) ── */
+      sessionStorage.setItem('supervisorName',       supName);
+      sessionStorage.setItem('supervisorShift',      selectedShift);
+      sessionStorage.setItem('supervisorShiftLabel', selectedShiftLabel);
+      sessionStorage.setItem('supervisorDept',       verifiedDept);
+      sessionStorage.setItem('email',                verifiedEmail);
+
+      /* ── Keep localStorage updated (own device) ── */
+      localStorage.setItem('supervisorName', supName);
+      localStorage.setItem('supervisorDept', verifiedDept);
+      localStorage.setItem('email',          verifiedEmail);
+
+      /* ══════════════════════════════════════════════════════════
+         WRITE SHIFT LOG TO FIRESTORE
+         Collection: shifts
+         Document fields:
+           supervisorName, department, shift, shiftLabel,
+           email, loginAt (Timestamp), date (YYYY-MM-DD),
+           status: 'active'
+         Used for: KPI filters, shift-wise activity reports,
+                   attendance tracking
+      ══════════════════════════════════════════════════════════ */
+      try {
+        const user = firebase.auth().currentUser;
+        const today = new Date().toISOString().split('T')[0];
+
+        const shiftDoc = await firebase.firestore().collection('shifts').add({
+          supervisorName: supName,
+          department:     verifiedDept,
+          email:          verifiedEmail,
+          shift:          selectedShift,           /* "Morning" */
+          shiftLabel:     selectedShiftLabel,      /* "Morning (6 AM – 2 PM)" */
+          date:           today,                   /* "2025-03-28" — for easy querying */
+          loginAt:        firebase.firestore.FieldValue.serverTimestamp(),
+          logoutAt:       null,                    /* updated on logout */
+          status:         'active',
+          uid:            user ? user.uid : null
+        });
+
+        /* Store the shift doc ID so we can update logoutAt on logout */
+        sessionStorage.setItem('shiftDocId', shiftDoc.id);
+
+        /* Also update the user profile with latest shift info */
+        if (user) {
+          await firebase.firestore().collection('users').doc(user.uid).set({
+            email:          verifiedEmail,
+            department:     verifiedDept,
+            displayName:    supName,
+            currentShift:   selectedShift,
+            lastLoginAt:    firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        }
+      } catch(e) {
+        console.warn('Shift log failed (non-fatal):', e.message);
+        /* Non-fatal — still proceed to Home */
+      }
+
+      window.location.href = 'Home.html';
+    }
+
+    /* ── "Not you?" → show name edit ── */
+    document.getElementById('notYouBtn').addEventListener('click', showNameEntry);
+
+    function showNameEntry() {
+      document.getElementById('step2').style.display    = 'none';
+      document.getElementById('stepName').style.display = 'block';
+      document.getElementById('stepName').style.animation = 'cardIn .4s ease';
+      const stored = localStorage.getItem('supervisorName') || '';
+      document.getElementById('nameEditInput').value = stored;
+      setTimeout(() => document.getElementById('nameEditInput').focus(), 200);
+    }
+
+    /* ── Save name and return to shift selection ── */
+    document.getElementById('saveNameBtn').addEventListener('click', saveName);
+    document.getElementById('nameEditInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') saveName();
+    });
+
+    function saveName() {
+      const name    = document.getElementById('nameEditInput').value.trim();
+      const nameMsg = document.getElementById('nameEditMsg');
+      if (!name || name.length < 2) {
+        nameMsg.textContent = '⚠ Enter your full name (min 2 characters)';
+        return;
+      }
+      /* Save permanently to localStorage on this phone */
+      localStorage.setItem('supervisorName', name);
+
+      /* Update the pill in step2 and go back */
+      document.getElementById('supName').textContent   = name;
+      document.getElementById('supAvatar').textContent = name.charAt(0).toUpperCase();
+      document.getElementById('stepName').style.display = 'none';
+      document.getElementById('step2').style.display   = 'block';
+      nameMsg.textContent = '';
+    }
+
+    document.getElementById('backToShiftBtn').addEventListener('click', () => {
+      document.getElementById('nameEditMsg').textContent = '';
+      document.getElementById('stepName').style.display = 'none';
+      document.getElementById('step2').style.display   = 'block';
+    });
   </script>
 </body>
 </html>

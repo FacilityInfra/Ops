@@ -150,6 +150,10 @@
     <div class="field">
       <label>Supervisor Name</label>
       <input type="text" id="supervisorName" placeholder="Your full name" autocomplete="name"/>
+      <!-- Shift hint — populated by auth handler -->
+      <div id="shiftHintRow" style="display:none;font-size:11px;font-weight:700;
+        color:var(--teal-600);margin-top:4px;padding:4px 8px;background:var(--teal-50);
+        border-radius:6px;border:1px solid var(--teal-100);"></div>
     </div>
 
     <div class="field" id="vendorOutcomeField" style="display:none;">
@@ -228,19 +232,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   auth.onAuthStateChanged(async user => {
     if (!user) { location.href = 'index.html'; return; }
 
-    // Autofill supervisor name: localStorage → Firestore profile → email prefix
-    let name = localStorage.getItem('supervisorName') || '';
-    if (!name) {
-      try {
-        const uDoc = await db.collection('users').doc(user.uid).get();
-        if (uDoc.exists && uDoc.data().displayName) name = uDoc.data().displayName;
-      } catch(e) {}
-    }
-    if (!name) name = user.displayName || user.email.split('@')[0];
+    /*
+     * NAME: from localStorage — stored permanently on their own phone.
+     * SHIFT: from sessionStorage — selected every login, cleared when tab closes.
+     * If no shift, redirect to login (session expired or direct URL access).
+     */
+    const storedName = localStorage.getItem('supervisorName') || '';
+    const shiftKey   = sessionStorage.getItem('supervisorShift') || '';
 
-    if (name) {
-      document.getElementById('supervisorName').value = name;
-      localStorage.setItem('supervisorName', name); // cache for next time
+    if (!storedName) {
+      await auth.signOut().catch(()=>{});
+      location.href = 'index.html';
+      return;
+    }
+    if (!shiftKey) {
+      /* No active shift session — must go through login shift selection */
+      location.href = 'index.html';
+      return;
+    }
+
+    /* Pre-fill name — still editable so they can correct typos */
+    document.getElementById('supervisorName').value = storedName;
+
+    /* Show shift badge below name field */
+    const shiftLabel = sessionStorage.getItem('supervisorShiftLabel') || shiftKey;
+    const shiftHint  = document.getElementById('shiftHintRow');
+    if (shiftHint) {
+      shiftHint.textContent = `⏰ ${shiftLabel}`;
+      shiftHint.style.display = '';
     }
   });
 
@@ -339,7 +358,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
     setStatus('Uploading…');
+
+    /*
+     * If supervisor corrected their name in this field, update localStorage
+     * so their phone remembers the corrected version going forward.
+     */
     localStorage.setItem('supervisorName', supName);
+    sessionStorage.setItem('supervisorName', supName);
 
     try {
       const uploadedPhotos = await uploadImages(photos);
@@ -347,6 +372,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const payload = {
         date: dateParam, department, activityName,
         supervisor: supName,
+        /* Shift data — written from sessionStorage for KPI filtering */
+        shift:      sessionStorage.getItem('supervisorShift')      || '',
+        shiftLabel: sessionStorage.getItem('supervisorShiftLabel') || '',
+        shiftDocId: sessionStorage.getItem('shiftDocId')           || '',
         notes: document.getElementById('notes').value.trim(),
         photos: uploadedPhotos, status: 'Completed',
         timestamp: firebase.firestore.FieldValue.serverTimestamp()

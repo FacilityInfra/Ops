@@ -3,47 +3,142 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Usage Logs</title>
+<title>Material Usage — Supervisor</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 <link rel="stylesheet" href="design-system.css"/>
 <style>
   .page-content.with-subnav { padding-top: 110px !important; }
 
-  /* Stock bar */
-  .sbar-wrap { height:7px; background:var(--gray-100); border-radius:99px; overflow:hidden; min-width:60px; margin-top:4px; }
+  /* ── KPI strip ── */
+  .kpi-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  @media(max-width:420px){ .kpi-strip { grid-template-columns:repeat(2,1fr); } }
+  .kpi-box {
+    background:var(--white); border-radius:var(--r-md); padding:12px 8px;
+    text-align:center; box-shadow:var(--shadow-sm); position:relative; overflow:hidden;
+  }
+  .kpi-box::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  }
+  .kpi-box.k-issues::before { background:var(--teal-500); }
+  .kpi-box.k-low::before    { background:var(--danger); }
+  .kpi-box.k-pend::before   { background:var(--warning); }
+  .kpi-box.k-items::before  { background:var(--blue-500); }
+  .kpi-val { font-size:1.45rem; font-weight:800; color:var(--gray-900); line-height:1; }
+  .kpi-box.k-low  .kpi-val { color:var(--danger); }
+  .kpi-box.k-pend .kpi-val { color:var(--warning); }
+  .kpi-box.k-items .kpi-val { color:var(--blue-700); }
+  .kpi-lbl { font-size:10px; font-weight:700; text-transform:uppercase;
+             letter-spacing:.4px; color:var(--gray-500); margin-top:4px; line-height:1.3; }
+
+  /* ── Stock bar ── */
+  .sbar-wrap { height:7px; background:var(--gray-100); border-radius:99px;
+               overflow:hidden; min-width:60px; margin-top:4px; }
   .sbar { height:100%; border-radius:99px; transition:width .5s cubic-bezier(.4,0,.2,1); }
   .sbar-ok   { background:linear-gradient(90deg,var(--teal-600),var(--teal-400)); }
   .sbar-low  { background:linear-gradient(90deg,var(--warning),#fcd34d); }
   .sbar-crit { background:var(--danger); }
 
-  /* Alert row */
+  /* ── Days remaining badge ── */
+  .days-badge {
+    display:inline-flex; align-items:center; gap:3px; font-size:11px;
+    font-weight:700; padding:3px 7px; border-radius:99px; white-space:nowrap;
+  }
+  .days-ok   { background:var(--success-bg); color:var(--success); }
+  .days-warn { background:var(--warning-bg); color:var(--warning); }
+  .days-crit { background:var(--danger-bg);  color:var(--danger); }
+  .days-idle { background:var(--gray-100);   color:var(--gray-500); }
+
+  /* ── Alert rows ── */
   .alert-row {
     display:flex; align-items:center; gap:10px; padding:10px 12px;
     border-radius:var(--r-md); background:var(--danger-bg);
-    border:1px solid #fca5a5; animation:fadeRow .3s ease both;
-    margin-bottom:6px;
+    border:1px solid #fca5a5; animation:fadeRow .3s ease both; margin-bottom:6px;
   }
-  .alert-row .alert-icon { font-size:16px; color:var(--danger); flex-shrink:0; }
-  .alert-row .alert-txt  { flex:1; font-size:13px; font-weight:600; color:#7f1d1d; }
-  .alert-row .alert-qty  { font-size:12px; font-weight:700; color:var(--danger); white-space:nowrap; }
-  @keyframes fadeRow { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .alert-icon { font-size:16px; color:var(--danger); flex-shrink:0; }
+  .alert-body { flex:1; min-width:0; }
+  .alert-txt  { font-size:13px; font-weight:700; color:#7f1d1d;
+                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .alert-sub  { font-size:11px; color:var(--danger); margin-top:1px; }
+  .alert-btn  {
+    flex-shrink:0; padding:5px 11px; border-radius:8px; border:none; cursor:pointer;
+    background:var(--danger); color:#fff; font-family:var(--font);
+    font-size:11px; font-weight:700; transition:var(--t-fast);
+    display:flex; align-items:center; gap:4px;
+  }
+  .alert-btn:hover { background:#b91c1c; }
 
-  /* Issued log rows */
+  /* ── Category bars ── */
+  .cat-row {
+    display:flex; align-items:center; gap:10px; padding:7px 0;
+    border-bottom:1px solid var(--gray-100);
+    animation:fadeRow .4s ease both;
+  }
+  .cat-row:last-child { border-bottom:none; }
+  .cat-name { font-size:12px; font-weight:700; color:var(--gray-700);
+              min-width:100px; max-width:100px; white-space:nowrap;
+              overflow:hidden; text-overflow:ellipsis; }
+  .cat-bar-wrap { flex:1; height:9px; background:var(--gray-100);
+                  border-radius:99px; overflow:hidden; }
+  .cat-fill { height:100%; border-radius:99px; transition:width .6s cubic-bezier(.4,0,.2,1);
+              background:linear-gradient(90deg,var(--teal-700),var(--teal-400)); }
+  .cat-pct  { font-size:11px; font-weight:800; color:var(--teal-700); min-width:34px; text-align:right; }
+  .cat-info { font-size:10px; color:var(--gray-500); min-width:80px; text-align:right; }
+
+  /* ── Issue log rows ── */
   .log-row {
-    display:flex; align-items:center; gap:10px; padding:9px 0;
+    display:flex; align-items:flex-start; gap:10px; padding:10px 0;
     border-bottom:1px solid var(--gray-100); animation:fadeRow .3s ease both;
   }
   .log-row:last-child { border-bottom:none; }
-  .log-dt { font-size:11px; font-weight:700; color:var(--gray-500); min-width:52px; text-align:center; background:var(--gray-100); padding:4px 6px; border-radius:8px; line-height:1.3; }
+  .log-dt {
+    font-size:11px; font-weight:700; color:var(--gray-500); min-width:52px;
+    text-align:center; background:var(--gray-100); padding:5px 6px;
+    border-radius:8px; line-height:1.4; flex-shrink:0;
+  }
+  .log-time { font-size:10px; font-weight:600; color:var(--teal-600); display:block; margin-top:2px; }
   .log-body { flex:1; min-width:0; }
-  .log-name { font-size:13px; font-weight:700; color:var(--gray-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .log-meta { font-size:11px; color:var(--gray-500); margin-top:1px; }
-  .log-qty  { font-size:13px; font-weight:800; color:var(--danger); flex-shrink:0; }
+  .log-name { font-size:13px; font-weight:700; color:var(--gray-900);
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .log-meta { font-size:11px; color:var(--gray-500); margin-top:2px; line-height:1.5; }
+  .log-right { display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0; }
+  .log-qty  { font-size:13px; font-weight:800; color:var(--danger); }
+  .log-dept { font-size:10px; color:var(--gray-500); font-weight:600; }
 
-  /* Tab filters */
-  .view-tabs { display:flex; gap:4px; background:var(--gray-100); border-radius:var(--r-md); padding:3px; margin-bottom:14px; }
-  .vtab { flex:1; padding:7px 6px; border:none; background:transparent; font-family:var(--font); font-size:12px; font-weight:700; color:var(--gray-500); border-radius:calc(var(--r-md) - 3px); cursor:pointer; transition:var(--t-fast); }
+  /* ── Toggle switch ── */
+  .mine-toggle { display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:var(--gray-50); border-radius:var(--r-md); margin-bottom:12px;
+    border:1px solid var(--gray-100); }
+  .mine-toggle label { font-size:12px; font-weight:700; color:var(--gray-700); cursor:pointer; }
+  .sw { position:relative; width:36px; height:20px; flex-shrink:0; }
+  .sw input { opacity:0; width:0; height:0; }
+  .sw-track { position:absolute; inset:0; background:var(--gray-300);
+    border-radius:10px; cursor:pointer; transition:.2s; }
+  .sw-track::before { content:''; position:absolute; width:16px; height:16px;
+    border-radius:50%; background:#fff; top:2px; left:2px; transition:.2s;
+    box-shadow:0 1px 3px rgba(0,0,0,.2); }
+  .sw input:checked + .sw-track { background:var(--teal-500); }
+  .sw input:checked + .sw-track::before { transform:translateX(16px); }
+
+  /* ── Active-only toggle row ── */
+  .active-row { display:flex; align-items:center; justify-content:flex-end;
+    gap:6px; margin-bottom:8px; }
+  .active-row span { font-size:12px; font-weight:600; color:var(--gray-500); }
+
+  /* ── View tabs ── */
+  .view-tabs { display:flex; gap:4px; background:var(--gray-100); border-radius:var(--r-md);
+    padding:3px; margin-bottom:12px; }
+  .vtab { flex:1; padding:8px 4px; border:none; background:transparent; font-family:var(--font);
+    font-size:11px; font-weight:700; color:var(--gray-500); border-radius:calc(var(--r-md)-3px);
+    cursor:pointer; transition:var(--t-fast); display:flex; align-items:center;
+    justify-content:center; gap:4px; }
   .vtab.active { background:var(--white); color:var(--teal-700); box-shadow:var(--shadow-sm); }
+
+  .sec-lbl { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.6px;
+             color:var(--gray-500); padding-bottom:8px; }
+
+  @keyframes fadeRow { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+  @keyframes spinning { to{transform:rotate(360deg)} }
+  .spinning { animation:spinning .6s linear infinite; }
 </style>
 </head>
 <body>
@@ -51,7 +146,7 @@
 <header class="app-header">
   <div class="brand">
     <div class="brand-icon"><i class="fa-solid fa-chart-bar" style="font-size:13px"></i></div>
-    Usage Logs
+    Material Usage
   </div>
   <div class="header-right">
     <button class="icon-btn" id="refreshBtn" style="background:rgba(255,255,255,.18);">
@@ -71,7 +166,7 @@
   <button class="nav-item" onclick="location.href='supervisor-inventory-req.html'">
     <i class="fa-solid fa-file-circle-plus"></i>Request
   </button>
-  <button class="nav-item active" onclick="location.href='supervisor-inventory-usage.html'">
+  <button class="nav-item active">
     <i class="fa-solid fa-chart-bar"></i>Logs
   </button>
 </nav>
@@ -84,15 +179,15 @@
   <section class="card" style="padding:12px 14px;">
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select id="filterRange"
-        style="flex:1;min-width:120px;padding:9px 10px;border:1.5px solid var(--gray-300);
+        style="flex:1;min-width:110px;padding:9px 10px;border:1.5px solid var(--gray-300);
                border-radius:var(--r-md);font-family:var(--font);font-size:13px;font-weight:600;
                background:var(--white);color:var(--gray-900);">
-        <option value="month">Last 30 Days</option>
-        <option value="week">Last 7 Days</option>
         <option value="today">Today</option>
+        <option value="week">Last 7 Days</option>
+        <option value="month" selected>Last 30 Days</option>
       </select>
       <select id="deptFilter"
-        style="flex:1;min-width:130px;padding:9px 10px;border:1.5px solid var(--gray-300);
+        style="flex:1;min-width:120px;padding:9px 10px;border:1.5px solid var(--gray-300);
                border-radius:var(--r-md);font-family:var(--font);font-size:13px;font-weight:600;
                background:var(--white);color:var(--gray-900);">
         <option value="All">All Departments</option>
@@ -105,45 +200,108 @@
     </div>
   </section>
 
-  <!-- ── LOW STOCK ALERTS ── -->
+  <!-- ── KPI STRIP ── -->
+  <div class="kpi-strip">
+    <div class="kpi-box k-issues">
+      <div class="kpi-val" id="kpiIssues">—</div>
+      <div class="kpi-lbl">Issues <span id="kpiPeriodLbl"></span></div>
+    </div>
+    <div class="kpi-box k-low">
+      <div class="kpi-val" id="kpiLow">—</div>
+      <div class="kpi-lbl">Low Stock</div>
+    </div>
+    <div class="kpi-box k-pend">
+      <div class="kpi-val" id="kpiPending">—</div>
+      <div class="kpi-lbl">Pending Req.</div>
+    </div>
+    <div class="kpi-box k-items">
+      <div class="kpi-val" id="kpiItems">—</div>
+      <div class="kpi-lbl">Total Items</div>
+    </div>
+  </div>
+
+  <!-- ── LOW-STOCK ALERTS ── -->
   <section class="card" id="alertSection" style="display:none;">
     <div class="card-header" style="margin-bottom:10px;">
       <div class="card-title" style="color:var(--danger);">
-        <i class="fa-solid fa-triangle-exclamation"></i> Low Stock Alerts
+        <i class="fa-solid fa-triangle-exclamation"></i> Reorder Alerts
       </div>
       <span class="badge badge-danger" id="alertCount">0</span>
     </div>
     <div id="alertList"></div>
+    <div style="text-align:center;margin-top:8px;">
+      <a href="supervisor-inventory-req.html"
+        style="font-size:12px;font-weight:700;color:var(--teal-600);text-decoration:none;">
+        View all requests →
+      </a>
+    </div>
   </section>
 
-  <!-- ── STOCK OVERVIEW + ISSUED LOG ── -->
+  <!-- ── MAIN TABS ── -->
   <section class="card">
     <div class="view-tabs">
       <button class="vtab active" data-view="stock">
-        <i class="fa-solid fa-boxes-stacked"></i> Stock Overview
+        <i class="fa-solid fa-boxes-stacked"></i> Stock
       </button>
       <button class="vtab" data-view="log">
         <i class="fa-solid fa-receipt"></i> Issue Log
       </button>
+      <button class="vtab" data-view="breakdown">
+        <i class="fa-solid fa-chart-pie"></i> By Category
+      </button>
     </div>
 
-    <!-- STOCK VIEW -->
+    <!-- STOCK TAB -->
     <div id="view-stock">
+      <div class="active-row">
+        <span id="activeToggleLbl">Active only</span>
+        <label class="sw" title="Show items with usage only">
+          <input type="checkbox" id="activeOnlyToggle" checked/>
+          <span class="sw-track"></span>
+        </label>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>#</th><th>Material</th><th>Used</th><th>Available</th><th>Stock Level</th></tr>
+            <tr>
+              <th>#</th>
+              <th>Material</th>
+              <th id="usedColHdr">Used</th>
+              <th>Available</th>
+              <th>Container</th>
+              <th>Est. Days Left</th>
+              <th>Stock %</th>
+            </tr>
           </thead>
           <tbody id="usageTable">
-            <tr><td colspan="5"><div class="loader"></div></td></tr>
+            <tr><td colspan="7"><div class="loader"></div></td></tr>
           </tbody>
         </table>
       </div>
     </div>
 
-    <!-- LOG VIEW -->
+    <!-- ISSUE LOG TAB -->
     <div id="view-log" style="display:none;">
+      <div class="mine-toggle">
+        <label class="sw" for="myIssuesToggle">
+          <input type="checkbox" id="myIssuesToggle"/>
+          <span class="sw-track"></span>
+        </label>
+        <label for="myIssuesToggle">Show only my issues</label>
+        <span id="myNameTag"
+          style="margin-left:auto;font-size:11px;color:var(--teal-600);font-weight:700;"></span>
+      </div>
       <div id="logList">
+        <div style="text-align:center;padding:14px;"><div class="loader"></div></div>
+      </div>
+    </div>
+
+    <!-- CATEGORY BREAKDOWN TAB -->
+    <div id="view-breakdown" style="display:none;">
+      <div class="sec-lbl">
+        Consumption by Category — <span id="breakdownPeriodLbl"></span>
+      </div>
+      <div id="catBreakdown">
         <div style="text-align:center;padding:14px;"><div class="loader"></div></div>
       </div>
     </div>
@@ -157,155 +315,311 @@
   <button class="active"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
 </div>
 
-<!-- ALL three Firebase SDKs -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/supervisor-common.js"></script>
 <script>
-/* ── Explicit db reference — never rely on implicit globals ── */
 const db   = window.db;
 const auth = window.auth;
-let currentView = 'stock';
-let currentDept = '';
+let currentView       = 'stock';
+let currentDept       = '';
+let currentSupervisor = '';
 
-/* ── Auth guard ── */
+/* ═══════════════════════════════════════════════════════════
+   AUTH GUARD
+═══════════════════════════════════════════════════════════ */
 auth.onAuthStateChanged(user => {
   if (!user) { location.href = 'index.html'; return; }
+  currentSupervisor = localStorage.getItem('supervisorName') || user.email.split('@')[0];
+  document.getElementById('userName').textContent  = currentSupervisor;
+  document.getElementById('myNameTag').textContent = currentSupervisor;
 
-  const name = localStorage.getItem('supervisorName') || user.email.split('@')[0];
-  document.getElementById('userName').textContent = name;
-
-  /* Auto-select supervisor's department */
   const deptMap = {'me@jll.com':'ME','hk@jll.com':'HK','security@jll.com':'Security','ehs@jll.com':'EHS'};
   currentDept = deptMap[user.email] || '';
-  if (currentDept) {
-    document.getElementById('deptFilter').value = currentDept;
-  }
+  if (currentDept) document.getElementById('deptFilter').value = currentDept;
 
   loadAll();
 });
 
-/* ── View tabs ── */
+/* ═══════════════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════════════ */
 document.querySelectorAll('.vtab').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.vtab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentView = btn.dataset.view;
-    document.getElementById('view-stock').style.display = currentView === 'stock' ? '' : 'none';
-    document.getElementById('view-log').style.display   = currentView === 'log'   ? '' : 'none';
-    if (currentView === 'log') loadIssueLog();
+    document.getElementById('view-stock').style.display     = currentView==='stock'     ? '' : 'none';
+    document.getElementById('view-log').style.display       = currentView==='log'       ? '' : 'none';
+    document.getElementById('view-breakdown').style.display = currentView==='breakdown' ? '' : 'none';
+    if (currentView === 'log')       loadIssueLog();
+    if (currentView === 'breakdown') loadBreakdown();
   });
 });
 
-/* ── Compute since date ── */
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
 function getSinceDate() {
-  const range = document.getElementById('filterRange').value;
+  const r = document.getElementById('filterRange').value;
   const d = new Date();
-  if (range === 'today') { d.setHours(0,0,0,0); }
-  else if (range === 'week') { d.setDate(d.getDate()-7); d.setHours(0,0,0,0); }
-  else { d.setDate(d.getDate()-30); d.setHours(0,0,0,0); }
+  if      (r==='today') d.setHours(0,0,0,0);
+  else if (r==='week')  { d.setDate(d.getDate()-7);  d.setHours(0,0,0,0); }
+  else                  { d.setDate(d.getDate()-30); d.setHours(0,0,0,0); }
   return d;
 }
-
-/* ── Load All (stock overview + alerts) ── */
-async function loadAll() {
-  await Promise.all([loadStockOverview(), loadIssueLog()]);
+function getPeriodLabel() {
+  const r = document.getElementById('filterRange').value;
+  return r==='today' ? 'Today' : r==='week' ? '7 Days' : '30 Days';
 }
 
-/* ── Stock Overview ── */
+/* Unit conversion — self-contained */
+function unitFamily(u) {
+  const L = {'Litre':'liquid','ml':'liquid','L':'liquid','Kg':'weight','g':'weight','kg':'weight'};
+  return L[u] || 'count';
+}
+function baseToHuman(base, unit) {
+  if (base == null || base === '') return '—';
+  const fam = unitFamily(unit);
+  if (fam === 'liquid') return base >= 1000
+    ? `${(base/1000).toFixed(2).replace(/\.?0+$/,'')} L`
+    : `${Math.round(base)} ml`;
+  if (fam === 'weight') return base >= 1000
+    ? `${(base/1000).toFixed(2).replace(/\.?0+$/,'')} Kg`
+    : `${Math.round(base)} g`;
+  return `${Math.round(base*1000)/1000} ${unit||''}`.trim();
+}
+
+/* Best human qty from an issuedItem doc */
+function displayIssuedQty(d) {
+  if (d.issuedQtyDisplay) return d.issuedQtyDisplay;       /* "2 Litre" */
+  if (d.deductedDisplay)  return d.deductedDisplay;        /* "2 L" */
+  return baseToHuman(d.deductedQtyInInvUnit||0, d.inventoryUnit||d.issuedUnit||'Nos');
+}
+
+/* Navigate to request page with pre-filled params */
+function goToRequest(dept, category, material) {
+  location.href = `supervisor-inventory-req.html?dept=${encodeURIComponent(dept)}&category=${encodeURIComponent(category)}&material=${encodeURIComponent(material)}`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOAD ALL
+═══════════════════════════════════════════════════════════ */
+async function loadAll() {
+  const lbl = getPeriodLabel();
+  document.getElementById('kpiPeriodLbl').textContent      = lbl;
+  document.getElementById('usedColHdr').textContent        = `Used (${lbl})`;
+  document.getElementById('breakdownPeriodLbl').textContent = lbl;
+
+  await Promise.all([loadStockOverview(), loadKPIs()]);
+  if (currentView === 'log')       loadIssueLog();
+  if (currentView === 'breakdown') loadBreakdown();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   KPI STRIP
+═══════════════════════════════════════════════════════════ */
+async function loadKPIs() {
+  try {
+    const dept      = document.getElementById('deptFilter').value;
+    const sinceDate = getSinceDate();
+
+    /* Issue count */
+    let issSnap;
+    try {
+      let q = db.collection('issuedItems')
+        .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(sinceDate));
+      if (dept !== 'All') q = q.where('department','==',dept);
+      issSnap = await q.get();
+    } catch(e) {
+      issSnap = await db.collection('issuedItems')
+        .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(sinceDate)).get();
+    }
+    let issCount = 0;
+    issSnap.forEach(d => {
+      if (dept === 'All' || d.data().department === dept) issCount++;
+    });
+    document.getElementById('kpiIssues').textContent = issCount;
+
+    /* Pending requests */
+    const pendSnap = await db.collection('materialRequests').where('status','==','Pending').get();
+    let pendCount = 0;
+    pendSnap.forEach(d => {
+      if (dept === 'All' || d.data().department === dept) pendCount++;
+    });
+    document.getElementById('kpiPending').textContent = pendCount;
+
+  } catch(e) { console.warn('loadKPIs:', e.message); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STOCK OVERVIEW
+   — container column
+   — days-remaining from 30-day consumption rate
+   — active-only toggle
+   — low-stock alerts with one-tap Request button
+═══════════════════════════════════════════════════════════ */
 async function loadStockOverview() {
-  const tbody = document.getElementById('usageTable');
-  tbody.innerHTML = '<tr><td colspan="5"><div class="loader"></div></td></tr>';
+  const tbody     = document.getElementById('usageTable');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loader"></div></td></tr>';
 
   const dept      = document.getElementById('deptFilter').value;
   const sinceDate = getSinceDate();
 
   try {
-    /* Fetch inventory for selected dept */
+    /* Inventory */
     let invQ = db.collection('inventory');
-    if (dept !== 'All') invQ = invQ.where('department', '==', dept);
+    if (dept !== 'All') invQ = invQ.where('department','==',dept);
     const invSnap = await invQ.get();
-
-    const invMap = {};
+    const invMap  = {};
     invSnap.forEach(d => invMap[d.id] = d.data());
+    const invIds  = Object.keys(invMap);
 
-    const invIds = Object.keys(invMap);
     if (!invIds.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--gray-500)">
-        No inventory found for ${dept === 'All' ? 'selected filters' : dept}
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--gray-500);">
+        No inventory found for ${dept === 'All' ? 'all departments' : dept}
       </td></tr>`;
       document.getElementById('alertSection').style.display = 'none';
+      document.getElementById('kpiLow').textContent   = '0';
+      document.getElementById('kpiItems').textContent = '0';
       return;
     }
 
-    /* Fetch issued items — filter by dept on query if possible, otherwise client-side */
-    let issuedQ = db.collection('issuedItems')
-      .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(sinceDate));
-    if (dept !== 'All') issuedQ = issuedQ.where('department', '==', dept);
-
-    let issuedSnap;
+    /* Issued — selected period (for "Used" column) */
+    let periodSnap;
     try {
-      issuedSnap = await issuedQ.get();
-    } catch(indexErr) {
-      /* Composite index may not exist — fall back to timestamp-only query + client filter */
-      console.warn('Dept+timestamp index missing, falling back:', indexErr.message);
-      issuedSnap = await db.collection('issuedItems')
-        .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(sinceDate)).get();
+      let q = db.collection('issuedItems')
+        .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(sinceDate));
+      if (dept !== 'All') q = q.where('department','==',dept);
+      periodSnap = await q.get();
+    } catch(e) {
+      periodSnap = await db.collection('issuedItems')
+        .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(sinceDate)).get();
     }
 
-    /* Accumulate used qty per materialId (only for materials in our invMap) */
-    const usedMap = {};
-    issuedSnap.forEach(doc => {
+    /* Issued — always last 30 days for rate estimation */
+    const ago30 = new Date(); ago30.setDate(ago30.getDate()-30); ago30.setHours(0,0,0,0);
+    const rateSnap = await db.collection('issuedItems')
+      .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(ago30)).get();
+
+    /* Accumulate usage maps */
+    const usedMap = {};  /* period */
+    periodSnap.forEach(doc => {
       const d = doc.data();
       if (d.materialId && invMap[d.materialId]) {
-        usedMap[d.materialId] = (usedMap[d.materialId] || 0) + (d.deductedQtyInInvUnit || 0);
+        if (dept !== 'All' && d.department !== dept) return;
+        usedMap[d.materialId] = (usedMap[d.materialId]||0) + (d.deductedQtyInInvUnit||0);
       }
     });
 
-    /* Build rows */
+    const rateMap = {};  /* 30d for estimation */
+    rateSnap.forEach(doc => {
+      const d = doc.data();
+      if (d.materialId && invMap[d.materialId]) {
+        if (dept !== 'All' && d.department !== dept) return;
+        rateMap[d.materialId] = (rateMap[d.materialId]||0) + (d.deductedQtyInInvUnit||0);
+      }
+    });
+
+    /* Build row objects */
+    const activeOnly = document.getElementById('activeOnlyToggle').checked;
     const rows = invIds.map(id => {
+      const inv     = invMap[id];
+      const avail   = inv.availableQty ?? inv.receivedQty ?? 0;
+      const total   = inv.totalQty     ?? inv.receivedQty ?? avail;
+      const used    = usedMap[id] || 0;
+      const rate30  = rateMap[id] || 0;
+      const daily   = rate30 / 30;
+      const daysLeft = daily > 0 ? Math.floor(avail / daily) : null;
+      return {
+        id, material: inv.materialName||'—', dept: inv.department||'',
+        used, avail, total, daysLeft, unit: inv.containerUnit||'',
+        containerSize: inv.containerSize || 0,
+        lastReceivedDate: inv.lastReceivedDate || inv.receivedDate || '',
+        threshold: inv.threshold || 0
+      };
+    })
+    .filter(r => !activeOnly || r.used > 0)
+    .sort((a, b) => {
+      /* Critical items first, then alphabetical */
+      const pa = a.total>0 ? a.avail/a.total : 1;
+      const pb = b.total>0 ? b.avail/b.total : 1;
+      if (pa < .15 && pb >= .15) return -1;
+      if (pb < .15 && pa >= .15) return  1;
+      return a.material.localeCompare(b.material);
+    });
+
+    /* KPI updates */
+    const allPcts = invIds.map(id => {
       const inv   = invMap[id];
       const avail = inv.availableQty ?? inv.receivedQty ?? 0;
-      const total = inv.totalQty     ?? inv.receivedQty ?? avail;
-      const used  = usedMap[id] || 0;
-      return {
-        id, material: inv.materialName || '—',
-        used, avail, total, unit: inv.containerUnit || '',
-        dept: inv.department || ''
-      };
-    }).sort((a, b) => a.material.localeCompare(b.material));
+      const total = inv.totalQty ?? inv.receivedQty ?? avail;
+      return { pct: total>0 ? (avail/total)*100 : 0, threshold: inv.threshold||0, avail };
+    });
+    const lowCount = allPcts.filter(r => r.pct < 20 || (r.threshold>0 && r.avail < r.threshold)).length;
+    document.getElementById('kpiLow').textContent   = lowCount;
+    document.getElementById('kpiItems').textContent = invIds.length;
 
-    /* Render stock table */
+    /* Render table */
     tbody.innerHTML = '';
-    rows.forEach((r, i) => {
-      const pct = r.total > 0 ? Math.min(100, Math.round((r.avail / r.total) * 100)) : 0;
-      const cls = pct > 40 ? 'sbar-ok' : pct > 15 ? 'sbar-low' : 'sbar-crit';
-      const pctColor = pct > 40 ? 'var(--teal-700)' : pct > 15 ? 'var(--warning)' : 'var(--danger)';
-      tbody.innerHTML += `
-        <tr>
-          <td style="color:var(--gray-500);font-weight:600">${i+1}</td>
-          <td>
-            <div style="font-weight:700;font-size:13px">${escapeHtml(r.material)}</div>
-            ${dept === 'All' ? `<div style="font-size:10px;color:var(--gray-500)">${escapeHtml(r.dept)}</div>` : ''}
-          </td>
-          <td style="font-weight:600;color:var(--danger)">${escapeHtml(formatReadable(r.used, r.unit))}</td>
-          <td style="font-weight:700">${escapeHtml(formatReadable(r.avail, r.unit))}</td>
-          <td>
-            <div style="min-width:72px">
-              <div style="font-size:10px;font-weight:800;color:${pctColor}">${pct}%</div>
-              <div class="sbar-wrap"><div class="sbar ${cls}" style="width:${pct}%"></div></div>
-            </div>
-          </td>
-        </tr>`;
-    });
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--gray-500);font-size:13px;">
+        <i class="fa-solid fa-box-open" style="font-size:22px;opacity:.3;display:block;margin-bottom:6px;"></i>
+        ${activeOnly ? 'No active items — toggle to show all' : 'No items found'}
+      </td></tr>`;
+    } else {
+      rows.forEach((r, i) => {
+        const pct    = r.total>0 ? Math.min(100,Math.round((r.avail/r.total)*100)) : 0;
+        const barCls = pct>40 ? 'sbar-ok' : pct>15 ? 'sbar-low' : 'sbar-crit';
+        const pctClr = pct>40 ? 'var(--teal-700)' : pct>15 ? 'var(--warning)' : 'var(--danger)';
 
-    /* Build low-stock alerts (< 20%) */
-    const lowItems = rows.filter(r => {
-      const pct = r.total > 0 ? Math.round((r.avail / r.total) * 100) : 0;
-      return pct < 20;
-    });
+        /* Days-remaining badge */
+        let daysBadge = '';
+        if (r.daysLeft === null) {
+          daysBadge = `<span class="days-badge days-idle"><i class="fa-solid fa-minus" style="font-size:8px"></i> No recent use</span>`;
+        } else if (r.daysLeft <= 3) {
+          daysBadge = `<span class="days-badge days-crit">🔴 ~${r.daysLeft}d — Reorder!</span>`;
+        } else if (r.daysLeft <= 10) {
+          daysBadge = `<span class="days-badge days-warn">⚠️ ~${r.daysLeft} days</span>`;
+        } else {
+          daysBadge = `<span class="days-badge days-ok">~${r.daysLeft} days</span>`;
+        }
+
+        const ctnStr = r.containerSize>0
+          ? `${r.containerSize} ${escapeHtml(r.unit)}` : `— ${escapeHtml(r.unit)}`;
+
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td style="color:var(--gray-500);font-weight:600;font-size:12px;">${i+1}</td>
+            <td>
+              <div style="font-weight:700;font-size:13px;">${escapeHtml(r.material)}</div>
+              ${dept==='All' ? `<div style="font-size:10px;color:var(--gray-500);">${escapeHtml(r.dept)}</div>` : ''}
+              ${r.lastReceivedDate ? `<div style="font-size:10px;color:var(--gray-400);">Rcvd: ${escapeHtml(r.lastReceivedDate)}</div>` : ''}
+            </td>
+            <td style="font-weight:600;color:var(--danger);">${escapeHtml(baseToHuman(r.used,r.unit))}</td>
+            <td style="font-weight:700;">${escapeHtml(baseToHuman(r.avail,r.unit))}</td>
+            <td style="font-size:12px;color:var(--gray-500);">${ctnStr}</td>
+            <td>${daysBadge}</td>
+            <td>
+              <div style="min-width:72px;">
+                <div style="font-size:10px;font-weight:800;color:${pctClr};">${pct}%</div>
+                <div class="sbar-wrap"><div class="sbar ${barCls}" style="width:${pct}%"></div></div>
+              </div>
+            </td>
+          </tr>`);
+      });
+    }
+
+    /* ── Low-stock alerts with Quick Request button ── */
+    const lowItems = invIds
+      .map(id => ({ id, inv:invMap[id], pct: (() => {
+        const v = invMap[id]; const a = v.availableQty??v.receivedQty??0;
+        const t = v.totalQty??v.receivedQty??a; return t>0?(a/t)*100:0;
+      })(), avail: invMap[id].availableQty??invMap[id].receivedQty??0 }))
+      .filter(r => r.pct < 20 || (r.inv.threshold>0 && r.avail < r.inv.threshold));
 
     const alertSection = document.getElementById('alertSection');
     const alertList    = document.getElementById('alertList');
@@ -314,14 +628,24 @@ async function loadStockOverview() {
       document.getElementById('alertCount').textContent = lowItems.length;
       alertList.innerHTML = '';
       lowItems.forEach((r, i) => {
-        const pct = r.total > 0 ? Math.round((r.avail / r.total) * 100) : 0;
+        const inv = r.inv;
+        const pct = Math.round(r.pct);
         const div = document.createElement('div');
         div.className = 'alert-row';
-        div.style.animationDelay = `${i * 0.06}s`;
+        div.style.animationDelay = `${i*0.06}s`;
         div.innerHTML = `
           <div class="alert-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <div class="alert-txt">${escapeHtml(r.material)}</div>
-          <div class="alert-qty">${escapeHtml(formatReadable(r.avail, r.unit))} left (${pct}%)</div>`;
+          <div class="alert-body">
+            <div class="alert-txt">${escapeHtml(inv.materialName||'—')}</div>
+            <div class="alert-sub">
+              ${escapeHtml(baseToHuman(r.avail,inv.containerUnit||''))} left · ${pct}%
+              ${inv.threshold>0 ? ` · Threshold: ${inv.threshold} ${escapeHtml(inv.containerUnit||'')}` : ''}
+            </div>
+          </div>
+          <button class="alert-btn"
+            onclick="goToRequest('${escapeHtml(inv.department||'')}','${escapeHtml(inv.category||'')}','${escapeHtml(inv.materialName||'')}')">
+            <i class="fa-solid fa-file-circle-plus"></i> Request
+          </button>`;
         alertList.appendChild(div);
       });
     } else {
@@ -330,88 +654,183 @@ async function loadStockOverview() {
 
   } catch(err) {
     console.error('loadStockOverview:', err);
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger);padding:14px">
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--danger);padding:14px;">
       Error loading data — ${escapeHtml(err.message)}
     </td></tr>`;
-    toast('Failed to load stock data', 'error');
+    toast('Failed to load stock data','error');
   }
 }
 
-/* ── Issue Log ── */
+/* ═══════════════════════════════════════════════════════════
+   ISSUE LOG
+   — correct qty display (issuedQtyDisplay > deductedDisplay > computed)
+   — time shown on each entry
+   — "My Issues" toggle filters by supervisor name
+   — category badge per row
+   — own entries highlighted
+═══════════════════════════════════════════════════════════ */
 async function loadIssueLog() {
   const el        = document.getElementById('logList');
   const dept      = document.getElementById('deptFilter').value;
   const sinceDate = getSinceDate();
+  const myOnly    = document.getElementById('myIssuesToggle').checked;
 
   el.innerHTML = '<div style="text-align:center;padding:14px;"><div class="loader"></div></div>';
 
   try {
-    let q = db.collection('issuedItems')
-      .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(sinceDate))
-      .orderBy('timestamp', 'desc');
-
-    const snap = await q.get();
+    const snap = await db.collection('issuedItems')
+      .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(sinceDate))
+      .orderBy('timestamp','desc').get();
 
     el.innerHTML = '';
     let count = 0;
 
     snap.forEach(doc => {
       const d = doc.data();
-      /* Client-side dept filter */
       if (dept !== 'All' && d.department !== dept) return;
+      if (myOnly && d.supervisor !== currentSupervisor) return;
 
-      const dt     = d.timestamp ? d.timestamp.toDate() : new Date(d.date || Date.now());
-      const dayStr = dt.toLocaleDateString('en-GB', { weekday:'short' });
-      const dtStr  = dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short' });
+      const dt      = d.timestamp ? d.timestamp.toDate() : new Date(d.date||Date.now());
+      const dayStr  = dt.toLocaleDateString('en-GB',{weekday:'short'});
+      const dateStr = dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+      const timeStr = dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:true});
+
+      const qtyDisplay = displayIssuedQty(d);
+      const isMine     = d.supervisor === currentSupervisor;
+
+      /* Badges */
+      const catBadge = d.category
+        ? `<span style="background:var(--teal-100);color:var(--teal-700);padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;">${escapeHtml(d.category)}</span> `
+        : '';
+      const shiftBadge = d.shift
+        ? `<span style="background:var(--blue-100);color:var(--blue-700);padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;">${escapeHtml(d.shift)}</span> `
+        : '';
 
       const row = document.createElement('div');
       row.className = 'log-row';
-      row.style.animationDelay = `${count * 0.04}s`;
+      row.style.animationDelay = `${count*0.04}s`;
+      if (isMine) {
+        row.style.borderLeft  = '3px solid var(--teal-400)';
+        row.style.paddingLeft = '8px';
+      }
       row.innerHTML = `
-        <div class="log-dt">${dayStr}<br>${dtStr}</div>
+        <div class="log-dt">${dayStr}<br>${dateStr}<span class="log-time">${timeStr}</span></div>
         <div class="log-body">
           <div class="log-name">${escapeHtml(d.materialName)}</div>
           <div class="log-meta">
-            ${escapeHtml(d.department)} · ${escapeHtml(d.supervisor || '—')}
+            ${catBadge}${shiftBadge}
+            <b>${escapeHtml(d.supervisor||'—')}</b>
             ${d.purpose ? ' · ' + escapeHtml(d.purpose) : ''}
           </div>
+          ${d.remarks ? `<div style="font-size:10px;color:var(--gray-400);margin-top:1px;font-style:italic;">${escapeHtml(d.remarks)}</div>` : ''}
         </div>
-        <div class="log-qty">−${escapeHtml(formatReadable(d.deductedQtyInInvUnit, d.inventoryUnit))}</div>`;
+        <div class="log-right">
+          <span class="log-qty">−${escapeHtml(qtyDisplay)}</span>
+          ${dept==='All' ? `<span class="log-dept">${escapeHtml(d.department||'')}</span>` : ''}
+        </div>`;
       el.appendChild(row);
       count++;
     });
 
     if (!count) {
-      el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--gray-500);font-size:13px;">
+      el.innerHTML = `<div style="text-align:center;padding:22px;color:var(--gray-500);font-size:13px;">
         <i class="fa-solid fa-inbox" style="font-size:24px;opacity:.3;display:block;margin-bottom:8px;"></i>
-        No issues recorded for the selected period
+        ${myOnly ? 'No issues recorded by you' : 'No issues recorded'} for this period
       </div>`;
     }
   } catch(err) {
     console.error('loadIssueLog:', err);
     el.innerHTML = `<div style="color:var(--danger);text-align:center;padding:14px;font-size:13px;">
-      Error loading log — ${escapeHtml(err.message)}
+      Error — ${escapeHtml(err.message)}
     </div>`;
   }
 }
 
-/* ── Events ── */
+/* ═══════════════════════════════════════════════════════════
+   CATEGORY BREAKDOWN
+   — horizontal CSS bars showing top categories by issue count
+   — number of unique items and transactions per category
+═══════════════════════════════════════════════════════════ */
+async function loadBreakdown() {
+  const el        = document.getElementById('catBreakdown');
+  const dept      = document.getElementById('deptFilter').value;
+  const sinceDate = getSinceDate();
+
+  el.innerHTML = '<div style="text-align:center;padding:14px;"><div class="loader"></div></div>';
+
+  try {
+    const snap = await db.collection('issuedItems')
+      .where('timestamp','>=',firebase.firestore.Timestamp.fromDate(sinceDate)).get();
+
+    const catMap   = {};
+    let grandTotal = 0;
+
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (dept !== 'All' && d.department !== dept) return;
+      const cat = d.category || 'Uncategorised';
+      if (!catMap[cat]) catMap[cat] = { count:0, items:new Set() };
+      catMap[cat].count++;
+      catMap[cat].items.add(d.materialName);
+      grandTotal++;
+    });
+
+    if (!grandTotal) {
+      el.innerHTML = `<div style="text-align:center;padding:22px;color:var(--gray-500);font-size:13px;">
+        <i class="fa-solid fa-chart-pie" style="font-size:24px;opacity:.3;display:block;margin-bottom:8px;"></i>
+        No issue data for this period
+      </div>`;
+      return;
+    }
+
+    const sorted = Object.entries(catMap)
+      .sort((a,b) => b[1].count - a[1].count)
+      .slice(0,8);
+
+    el.innerHTML = '';
+    sorted.forEach(([cat, data], i) => {
+      const pct = Math.round((data.count/grandTotal)*100);
+      const div = document.createElement('div');
+      div.className = 'cat-row';
+      div.style.animationDelay = `${i*0.07}s`;
+      div.innerHTML = `
+        <div class="cat-name" title="${escapeHtml(cat)}">${escapeHtml(cat)}</div>
+        <div class="cat-bar-wrap"><div class="cat-fill" style="width:${pct}%"></div></div>
+        <div class="cat-pct">${pct}%</div>
+        <div class="cat-info">${data.count} issues · ${data.items.size} items</div>`;
+      el.appendChild(div);
+    });
+
+    const sumDiv = document.createElement('div');
+    sumDiv.style.cssText = 'text-align:right;font-size:11px;color:var(--gray-500);padding-top:8px;margin-top:4px;border-top:1px solid var(--gray-100);';
+    sumDiv.textContent = `${grandTotal} total issue transactions`;
+    el.appendChild(sumDiv);
+
+  } catch(err) {
+    console.error('loadBreakdown:', err);
+    el.innerHTML = `<div style="color:var(--danger);text-align:center;padding:14px;font-size:13px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   EVENTS
+═══════════════════════════════════════════════════════════ */
 document.getElementById('refreshBtn').addEventListener('click', async () => {
-  const ico = document.getElementById('refreshIco');
-  ico.classList.add('spinning');
-  toast('Refreshing…', 'info');
+  document.getElementById('refreshIco').classList.add('spinning');
+  toast('Refreshing…','info');
   await loadAll();
-  ico.classList.remove('spinning');
+  document.getElementById('refreshIco').classList.remove('spinning');
   toast('Updated!');
 });
-
 document.getElementById('filterRange').addEventListener('change', loadAll);
 document.getElementById('deptFilter').addEventListener('change', loadAll);
 
-/* Spinner keyframe */
-const style = document.createElement('style');
-style.textContent = '@keyframes spinning { to { transform:rotate(360deg); } } .spinning { animation:spinning .6s linear infinite; }';
-document.head.appendChild(style);
+document.getElementById('activeOnlyToggle').addEventListener('change', () => {
+  document.getElementById('activeToggleLbl').textContent =
+    document.getElementById('activeOnlyToggle').checked ? 'Active only' : 'All items';
+  loadStockOverview();
+});
+document.getElementById('myIssuesToggle').addEventListener('change', loadIssueLog);
 </script>
 </body>
 </html>

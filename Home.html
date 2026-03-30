@@ -247,20 +247,46 @@ function getFortnight(d) { return d.getDate() <= 15 ? 1 : 2; }
 /* ── Auth guard ── */
 auth.onAuthStateChanged(async user => {
   if (!user) { location.href = 'index.html'; return; }
-  let d = '';
-  try {
-    const uDoc = await db.collection('users').doc(user.uid).get();
-    if (uDoc.exists) { d = uDoc.data().department || ''; userName = uDoc.data().displayName || ''; }
-  } catch(e) {}
-  if (!d) { const m={'me@jll.com':'M&E','hk@jll.com':'H&K','security@jll.com':'Security','ehs@jll.com':'EHS'}; d = m[user.email]||''; }
-  if (!userName) userName = localStorage.getItem('supervisorName') || user.email.split('@')[0];
+
+  /*
+   * NAME: read from localStorage (permanent on own phone — typed once ever).
+   * SHIFT: read from sessionStorage (selected every login — cleared when tab closes).
+   * If no shift in sessionStorage, this is a direct URL hit — send back to login.
+   */
+  const storedName  = localStorage.getItem('supervisorName') || '';
+  const shiftLabel  = sessionStorage.getItem('supervisorShiftLabel') || '';
+  const shiftKey    = sessionStorage.getItem('supervisorShift') || '';
+
+  if (!storedName) {
+    /* First time on this phone — needs to go through login to set their name */
+    await auth.signOut().catch(()=>{});
+    location.href = 'index.html';
+    return;
+  }
+  if (!shiftKey) {
+    /* No active shift — redirect to login shift selection */
+    location.href = 'index.html';
+    return;
+  }
+
+  userName = storedName;
+
+  /* Dept: sessionStorage → email map fallback */
+  let d = sessionStorage.getItem('supervisorDept') || localStorage.getItem('supervisorDept') || '';
+  if (!d) {
+    const m = {'me@jll.com':'M&E','hk@jll.com':'H&K','security@jll.com':'Security','ehs@jll.com':'EHS'};
+    d = m[user.email] || '';
+  }
   dept = d;
-  try { localStorage.setItem('supervisorDept', dept); localStorage.setItem('supervisorName', userName); } catch(e){}
+  sessionStorage.setItem('supervisorDept', dept);
 
   const hr = new Date().getHours();
   document.getElementById('greetText').textContent = hr<12?'Good Morning 👋':hr<17?'Good Afternoon ☀️':'Good Evening 🌙';
   document.getElementById('heroName').textContent = userName;
-  document.getElementById('heroDept').textContent = dept || 'No Dept';
+  /* Show shift in the dept pill — e.g. "H&K · Morning Shift" */
+  const shiftDisp = sessionStorage.getItem('supervisorShift') || '';
+  document.getElementById('heroDept').textContent =
+    shiftDisp ? `${dept} · ${shiftDisp} Shift` : (dept || 'No Dept');
   document.getElementById('headerName').textContent = userName;
   document.getElementById('supChartLabel').textContent = dept ? `${dept} — Team` : 'All Teams';
 
@@ -613,10 +639,26 @@ function renderTopPerformers(arr) {
 /* ── Events ── */
 qsa('.filter-tab').forEach(btn => btn.addEventListener('click', () => loadAll(btn.dataset.range)));
 document.getElementById('refreshBtn').addEventListener('click', async () => { toast('Refreshing…','info'); await loadAll(currentRange); toast('Updated!'); });
-document.getElementById('logoutBtn').addEventListener('click', () => {
-  const n = localStorage.getItem('supervisorName');
-  try { localStorage.clear(); } catch(e) {}
-  if (n) localStorage.setItem('supervisorName', n);
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  /* Mark the shift as ended in Firestore (for KPI tracking) */
+  const shiftDocId = sessionStorage.getItem('shiftDocId');
+  if (shiftDocId) {
+    try {
+      await db.collection('shifts').doc(shiftDocId).update({
+        logoutAt: firebase.firestore.FieldValue.serverTimestamp(),
+        status:   'completed'
+      });
+    } catch(e) { console.warn('Could not update shift logoutAt:', e.message); }
+  }
+
+  /* Clear session data — name stays in localStorage (their own phone) */
+  sessionStorage.removeItem('supervisorShift');
+  sessionStorage.removeItem('supervisorShiftLabel');
+  sessionStorage.removeItem('supervisorDept');
+  sessionStorage.removeItem('shiftDocId');
+  sessionStorage.removeItem('email');
+  /* supervisorName intentionally kept in sessionStorage if set — not needed after clear above */
+
   auth.signOut().finally(() => location.href = 'index.html');
 });
 </script>

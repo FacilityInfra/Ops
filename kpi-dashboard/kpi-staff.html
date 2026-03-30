@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Staff KPIs — Facility Dashboard</title>
+<link rel="stylesheet" href="kpi-style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="kpi-config.js"></script>
+<style>
+  /* Shift colour badges */
+  .shift-morning   { background:#fef3c7; color:#92400e; }
+  .shift-afternoon { background:#dbeafe; color:#1e40af; }
+  .shift-night     { background:#ede9fe; color:#5b21b6; }
+  .shift-general   { background:var(--t1); color:var(--t7); }
+
+  /* Attendance heatmap cells */
+  .heat-grid { display:grid; gap:3px; }
+  .heat-cell {
+    width:26px; height:26px; border-radius:5px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:700; cursor:default;
+    transition:.15s;
+  }
+  .heat-0 { background:var(--gray1); color:var(--gray5); }
+  .heat-1 { background:#bbf7d0; color:#166534; }
+  .heat-2 { background:#4ade80; color:#14532d; }
+  .heat-3 { background:#16a34a; color:#fff; }
+  .heat-4 { background:#15803d; color:#fff; }
+
+  /* Leaderboard medals */
+  .medal-1 { color:#f59e0b; font-size:18px; }
+  .medal-2 { color:#94a3b8; font-size:18px; }
+  .medal-3 { color:#cd7c2f; font-size:18px; }
+</style>
+</head>
+<body>
+
+<header class="kpi-header">
+  <div class="brand">
+    <i class="fa-solid fa-users"></i> Staff KPIs
+    <span class="tag">Shifts & Performance</span>
+  </div>
+  <nav style="display:flex;gap:4px;">
+    <a href="index.html"><i class="fa-solid fa-house"></i> Overview</a>
+    <a href="kpi-activities.html"><i class="fa-solid fa-list-check"></i> Activities</a>
+    <a href="kpi-inventory.html"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
+    <a href="kpi-vendors.html"><i class="fa-solid fa-truck"></i> Vendors</a>
+    <a href="kpi-staff.html" class="active"><i class="fa-solid fa-users"></i> Staff</a>
+  </nav>
+</header>
+
+<main class="kpi-main">
+
+  <!-- HERO -->
+  <div class="page-hero" style="background:linear-gradient(135deg,#4c1d95,#7c3aed);">
+    <div>
+      <h1><i class="fa-solid fa-users"></i> Staff & Shift KPIs</h1>
+      <div class="hero-sub">Attendance · Shift coverage · Individual performance · Activity leaderboard</div>
+    </div>
+    <i class="fa-solid fa-id-badge hero-icon"></i>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="card" style="padding:14px 18px;">
+    <div class="filters-bar">
+      <select id="deptFilter">
+        <option value="All">All Departments</option>
+        <option value="HK">H&K</option>
+        <option value="ME">M&E</option>
+        <option value="Security">Security</option>
+        <option value="EHS">EHS</option>
+      </select>
+      <select id="periodFilter">
+        <option value="week">Last 7 Days</option>
+        <option value="month" selected>This Month</option>
+        <option value="quarter">This Quarter</option>
+      </select>
+      <button class="btn btn-primary" id="applyBtn">
+        <i class="fa-solid fa-filter"></i> Apply
+      </button>
+      <button class="btn btn-excel" id="exportBtn" style="margin-left:auto;">
+        <i class="fa-solid fa-file-excel"></i> Export Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-row">
+    <div class="kpi-box k-total">
+      <div class="kpi-val" id="kLogins">—</div>
+      <div class="kpi-lbl">Shift Logins</div>
+    </div>
+    <div class="kpi-box k-ok">
+      <div class="kpi-val" id="kSupervisors">—</div>
+      <div class="kpi-lbl">Active Supervisors</div>
+    </div>
+    <div class="kpi-box k-blue">
+      <div class="kpi-val" id="kAvgPerShift">—</div>
+      <div class="kpi-lbl">Avg Activities / Shift</div>
+    </div>
+    <div class="kpi-box k-warn">
+      <div class="kpi-val" id="kTopSup">—</div>
+      <div class="kpi-lbl">Top Performer</div>
+      <div class="kpi-sub" id="kTopSupSub"></div>
+    </div>
+    <div class="kpi-box" style="border-top:3px solid #7c3aed;">
+      <div class="kpi-val" style="color:#7c3aed;" id="kNightShifts">—</div>
+      <div class="kpi-lbl">Night Shifts Logged</div>
+    </div>
+    <div class="kpi-box k-danger">
+      <div class="kpi-val" id="kDeptCoverage">—</div>
+      <div class="kpi-lbl">Departments Covered</div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-pie"></i> Shift Distribution
+      </div>
+      <div class="chart-wrap"><canvas id="shiftPieChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-bar"></i> Activities per Shift Type
+      </div>
+      <div class="chart-wrap"><canvas id="shiftActChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-chart-line"></i> Daily Login Trend
+      </div>
+      <div class="chart-wrap"><canvas id="loginTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-building"></i> Dept-wise Shift Coverage
+      </div>
+      <div class="chart-wrap"><canvas id="deptShiftChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-trophy"></i> Supervisor Performance Leaderboard
+      </div>
+      <button class="btn btn-excel btn-sm"
+        onclick="exportTableToExcel('leaderTable','Leaderboard','Supervisor_Leaderboard.xlsx')">
+        <i class="fa-solid fa-file-excel"></i> Export
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table id="leaderTable">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Supervisor</th>
+            <th class="hide-mobile">Department</th>
+            <th>Shifts Logged</th>
+            <th>Activities Done</th>
+            <th>Avg per Shift</th>
+            <th>Preferred Shift</th>
+            <th>Last Active</th>
+            <th>Performance</th>
+          </tr>
+        </thead>
+        <tbody id="leaderBody">
+          <tr><td colspan="9"><div class="loader"><div class="spinner"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SHIFT LOG TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <i class="fa-solid fa-table-list"></i> Shift Login Log
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="shiftLogFilter" style="padding:6px 10px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:13px;">
+          <option value="All">All Shifts</option>
+          <option value="Morning">Morning</option>
+          <option value="Afternoon">Afternoon</option>
+          <option value="Night">Night</option>
+          <option value="General">General</option>
+        </select>
+        <button class="btn btn-excel btn-sm"
+          onclick="exportTableToExcel('shiftLogTable','ShiftLog','Shift_Log.xlsx')">
+          <i class="fa-solid fa-file-excel"></i> Export
+        </button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="shiftLogTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Supervisor</th>
+            <th>Department</th><th>Shift</th>
+            <th>Login Time</th><th>Logout Time</th><th>Duration</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="shiftLogBody">
+          <tr><td colspan="9"><div class="loader"><div class="spinner"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const db = initKpiFirebase();
+let allShifts = [], allSubs = [], charts = {};
+
+document.getElementById('applyBtn').addEventListener('click', load);
+document.getElementById('shiftLogFilter').addEventListener('change', renderShiftLog);
+document.getElementById('exportBtn').addEventListener('click', exportExcel);
+load();
+
+/* ════════════════════════════════════════════════════════════
+   LOAD
+════════════════════════════════════════════════════════════ */
+async function load() {
+  const dept   = document.getElementById('deptFilter').value;
+  const period = document.getElementById('periodFilter').value;
+  const { start, end } = getDateRange(period);
+  const startTs = firebase.firestore.Timestamp.fromDate(start);
+  const endTs   = firebase.firestore.Timestamp.fromDate(end);
+
+  try {
+    /* Fetch shifts and activity submissions in parallel */
+    const [shiftSnap, subSnap] = await Promise.all([
+      db.collection('shifts').where('loginAt', '>=', startTs).where('loginAt', '<=', endTs).get(),
+      db.collection('submissions').where('timestamp', '>=', startTs).where('timestamp', '<=', endTs).get()
+    ]);
+
+    allShifts = shiftSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => dept === 'All' || r.department === dept);
+
+    allSubs = subSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => dept === 'All' || r.department === dept)
+      .filter(r => r.activityType !== 'vendor' && r.department !== 'Vendor');
+
+    renderAll(start, end);
+  } catch(e) {
+    console.error('Staff KPI load error:', e);
+    alert('Failed to load data: ' + e.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════════════════════════ */
+function renderAll(start, end) {
+
+  /* ── KPIs ── */
+  const uniqueSups = [...new Set(allShifts.map(s => s.supervisorName).filter(Boolean))];
+  const nightCount = allShifts.filter(s => s.shift === 'Night').length;
+  const uniqueDepts= [...new Set(allShifts.map(s => s.department).filter(Boolean))];
+  const doneActs   = allSubs.filter(r => r.photos?.length > 0).length;
+  const avgPerShift= allShifts.length > 0 ? (doneActs / allShifts.length).toFixed(1) : '—';
+
+  /* Top performer */
+  const supActMap = {};
+  allSubs.filter(r => r.photos?.length > 0).forEach(r => {
+    const s = r.supervisor || '?';
+    supActMap[s] = (supActMap[s] || 0) + 1;
+  });
+  const topEntry = Object.entries(supActMap).sort((a, b) => b[1] - a[1])[0];
+
+  setText('kLogins',       allShifts.length);
+  setText('kSupervisors',  uniqueSups.length);
+  setText('kAvgPerShift',  avgPerShift);
+  setText('kNightShifts',  nightCount);
+  setText('kDeptCoverage', uniqueDepts.length);
+  setText('kTopSup',       topEntry ? topEntry[0].split(' ')[0] : '—');
+  setText('kTopSupSub',    topEntry ? topEntry[1] + ' activities' : '');
+
+  /* ── Chart 1: Shift distribution pie ── */
+  const SHIFT_ORDER = ['Morning', 'Afternoon', 'Night', 'General'];
+  const shiftCount  = {};
+  allShifts.forEach(s => { const sh = s.shift || 'General'; shiftCount[sh] = (shiftCount[sh] || 0) + 1; });
+  const shiftCols = { Morning: KPI_COLORS.morning, Afternoon: KPI_COLORS.afternoon, Night: KPI_COLORS.night, General: KPI_COLORS.general };
+  const sLabels = SHIFT_ORDER.filter(s => shiftCount[s]);
+  drawChart('shiftPieChart', 'doughnut', {
+    labels: sLabels,
+    datasets: [{
+      data: sLabels.map(s => shiftCount[s]),
+      backgroundColor: sLabels.map(s => shiftCols[s] || KPI_COLORS.gray),
+      borderWidth: 0
+    }]
+  }, { cutout: '55%', plugins: { legend: { position: 'bottom' } } });
+
+  /* ── Chart 2: Activities completed per shift type ── */
+  const shiftActMap = {};
+  allSubs.filter(r => r.photos?.length > 0).forEach(r => {
+    const sh = r.shift || r.shiftLabel?.split(' ')[0] || 'General';
+    shiftActMap[sh] = (shiftActMap[sh] || 0) + 1;
+  });
+  const saLabels = SHIFT_ORDER.filter(s => shiftActMap[s]);
+  drawChart('shiftActChart', 'bar', {
+    labels: saLabels,
+    datasets: [{
+      label: 'Activities Completed',
+      data: saLabels.map(s => shiftActMap[s] || 0),
+      backgroundColor: saLabels.map(s => shiftCols[s] || KPI_COLORS.gray),
+      borderRadius: 6
+    }]
+  }, { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } });
+
+  /* ── Chart 3: Daily login trend ── */
+  const days   = getLastNDays(30);
+  const dayMap = {};
+  allShifts.forEach(s => {
+    const dt = s.loginAt?.toDate ? s.loginAt.toDate() : parseDate(s.date);
+    if (dt) { const k = isoDate(dt); dayMap[k] = (dayMap[k] || 0) + 1; }
+  });
+  drawChart('loginTrendChart', 'line', {
+    labels: days.map(d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })),
+    datasets: [{
+      label: 'Logins',
+      data: days.map(d => dayMap[isoDate(d)] || 0),
+      borderColor: '#7c3aed',
+      backgroundColor: 'rgba(124,58,237,.1)',
+      fill: true, tension: .35, pointRadius: 3, borderWidth: 2
+    }]
+  }, { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } });
+
+  /* ── Chart 4: Dept-wise shift count (stacked by shift) ── */
+  const deptShiftMap = {};
+  allShifts.forEach(s => {
+    const dep = s.department || 'Unknown';
+    const sh  = s.shift || 'General';
+    if (!deptShiftMap[dep]) deptShiftMap[dep] = {};
+    deptShiftMap[dep][sh] = (deptShiftMap[dep][sh] || 0) + 1;
+  });
+  const dLabels = Object.keys(deptShiftMap);
+  drawChart('deptShiftChart', 'bar', {
+    labels: dLabels,
+    datasets: SHIFT_ORDER.map(sh => ({
+      label: sh,
+      data: dLabels.map(d => deptShiftMap[d]?.[sh] || 0),
+      backgroundColor: shiftCols[sh] || KPI_COLORS.gray,
+      borderRadius: 4
+    }))
+  }, {
+    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+    plugins: { legend: { position: 'bottom' } }
+  });
+
+  /* ── Leaderboard Table ── */
+  renderLeaderboard();
+
+  /* ── Shift Log ── */
+  renderShiftLog();
+}
+
+function renderLeaderboard() {
+  const supMap = {};
+  allShifts.forEach(s => {
+    const n = s.supervisorName || '?';
+    if (!supMap[n]) supMap[n] = { shifts: 0, depts: new Set(), shiftTypes: {}, lastActive: null };
+    supMap[n].shifts++;
+    if (s.department) supMap[n].depts.add(s.department);
+    const sh = s.shift || 'General';
+    supMap[n].shiftTypes[sh] = (supMap[n].shiftTypes[sh] || 0) + 1;
+    const dt = s.loginAt?.toDate ? s.loginAt.toDate() : parseDate(s.date);
+    if (dt && (!supMap[n].lastActive || dt > supMap[n].lastActive)) supMap[n].lastActive = dt;
+  });
+
+  /* Merge activity counts */
+  allSubs.filter(r => r.photos?.length > 0).forEach(r => {
+    const n = r.supervisor || '?';
+    if (!supMap[n]) supMap[n] = { shifts: 0, depts: new Set(), shiftTypes: {}, lastActive: null };
+    supMap[n].actsDone = (supMap[n].actsDone || 0) + 1;
+  });
+
+  const sorted = Object.entries(supMap).sort((a, b) => (b[1].actsDone || 0) - (a[1].actsDone || 0));
+  const medals = ['🥇', '🥈', '🥉'];
+  const body   = document.getElementById('leaderBody');
+  body.innerHTML = '';
+
+  const maxActs = sorted[0]?.[1]?.actsDone || 1;
+
+  sorted.forEach(([name, u], i) => {
+    const rank  = i < 3 ? `<span class="medal-${i+1}">${medals[i]}</span>` : `<b>${i + 1}</b>`;
+    const acts  = u.actsDone || 0;
+    const avg   = u.shifts > 0 ? (acts / u.shifts).toFixed(1) : '0';
+    const pref  = Object.entries(u.shiftTypes).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+    const shiftBadge = `<span class="badge shift-${pref.toLowerCase()}">${pref}</span>`;
+    const pct   = Math.round((acts / maxActs) * 100);
+    const bar   = `<div style="display:flex;align-items:center;gap:6px;">
+      <div class="prog-bar" style="width:80px;"><div class="prog-fill" style="width:${pct}%;"></div></div>
+      <span style="font-size:12px;font-weight:700;">${acts}</span>
+    </div>`;
+    const cls = i === 0 ? 'row-ok' : i < 3 ? 'row-warn' : '';
+    body.insertAdjacentHTML('beforeend', `
+      <tr class="${cls}">
+        <td style="text-align:center;">${rank}</td>
+        <td class="bold">${esc(name)}</td>
+        <td class="hide-mobile">${esc([...u.depts].join(', ') || '—')}</td>
+        <td>${u.shifts}</td>
+        <td style="font-weight:700;color:var(--ok);">${acts}</td>
+        <td>${avg}</td>
+        <td>${shiftBadge}</td>
+        <td>${u.lastActive ? formatDate(u.lastActive) : '—'}</td>
+        <td>${bar}</td>
+      </tr>`);
+  });
+
+  if (!sorted.length) {
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--gray5);">No shift data found</td></tr>';
+  }
+}
+
+function renderShiftLog() {
+  const shiftF = document.getElementById('shiftLogFilter').value;
+  const body   = document.getElementById('shiftLogBody');
+  const show   = shiftF === 'All' ? allShifts : allShifts.filter(s => s.shift === shiftF);
+
+  body.innerHTML = '';
+  show.slice().sort((a, b) => {
+    const da = a.loginAt?.seconds || 0;
+    const db_ = b.loginAt?.seconds || 0;
+    return db_ - da;
+  }).forEach((s, i) => {
+    const loginDt  = s.loginAt?.toDate  ? s.loginAt.toDate()  : parseDate(s.date || '');
+    const logoutDt = s.logoutAt?.toDate ? s.logoutAt.toDate() : null;
+    const loginStr  = loginDt  ? loginDt.toLocaleTimeString('en-GB',  { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
+    const logoutStr = logoutDt ? logoutDt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
+    const dateStr   = loginDt  ? formatDate(loginDt) : '—';
+
+    /* Duration */
+    let duration = '—';
+    if (loginDt && logoutDt) {
+      const mins = Math.round((logoutDt - loginDt) / 60000);
+      duration = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+    }
+
+    const shift     = s.shift || 'General';
+    const shiftBadge= `<span class="badge shift-${shift.toLowerCase()}">${shift}</span>`;
+    const status    = s.status === 'active'
+      ? `<span class="badge b-ok">🟢 Active</span>`
+      : `<span class="badge b-gray">✅ Completed</span>`;
+
+    body.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${esc(dateStr)}</td>
+        <td class="bold">${esc(s.supervisorName || '—')}</td>
+        <td>${esc(s.department || '—')}</td>
+        <td>${shiftBadge}</td>
+        <td>${esc(loginStr)}</td>
+        <td>${esc(logoutStr)}</td>
+        <td>${esc(duration)}</td>
+        <td>${status}</td>
+      </tr>`);
+  });
+
+  if (!show.length) {
+    body.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--gray5);">
+      No shift logs for selected filter</td></tr>`;
+  }
+}
+
+/* Chart helper */
+function drawChart(id, type, data, extraOpts = {}) {
+  const ctx = document.getElementById(id).getContext('2d');
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type,
+    data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      ...extraOpts,
+      plugins: { ...(extraOpts.plugins || {}) }
+    }
+  });
+}
+
+function exportExcel() {
+  exportToExcel([
+    {
+      name: 'Shift Log',
+      data: allShifts.map(s => {
+        const loginDt  = s.loginAt?.toDate  ? s.loginAt.toDate()  : null;
+        const logoutDt = s.logoutAt?.toDate ? s.logoutAt.toDate() : null;
+        const mins     = loginDt && logoutDt ? Math.round((logoutDt - loginDt) / 60000) : '';
+        return {
+          Date:        loginDt ? formatDate(loginDt) : '—',
+          Supervisor:  s.supervisorName || '—',
+          Department:  s.department || '—',
+          Shift:       s.shift || '—',
+          LoginTime:   loginDt  ? loginDt.toLocaleTimeString('en-GB')  : '—',
+          LogoutTime:  logoutDt ? logoutDt.toLocaleTimeString('en-GB') : '—',
+          DurationMins: mins,
+          Status:      s.status || '—'
+        };
+      })
+    },
+    {
+      name: 'Supervisor Performance',
+      data: (() => {
+        const supMap = {};
+        allShifts.forEach(s => {
+          const n = s.supervisorName || '?';
+          if (!supMap[n]) supMap[n] = { dept: s.department || '—', shifts: 0, acts: 0 };
+          supMap[n].shifts++;
+        });
+        allSubs.filter(r => r.photos?.length > 0).forEach(r => {
+          const n = r.supervisor || '?';
+          if (!supMap[n]) supMap[n] = { dept: r.department || '—', shifts: 0, acts: 0 };
+          supMap[n].acts++;
+        });
+        return Object.entries(supMap)
+          .sort((a, b) => b[1].acts - a[1].acts)
+          .map(([name, u], i) => ({
+            Rank:           i + 1,
+            Supervisor:     name,
+            Department:     u.dept,
+            ShiftsLogged:   u.shifts,
+            ActivitiesDone: u.acts,
+            AvgPerShift:    u.shifts > 0 ? (u.acts / u.shifts).toFixed(1) : 0
+          }));
+      })()
+    }
+  ], `Staff_KPI_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+</script>
+</body>
+</html>

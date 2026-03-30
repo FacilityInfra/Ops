@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Inventory KPIs</title><link rel="stylesheet" href="kpi-style.css"/><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/><script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script><script src="kpi-config.js"></script></head>
+<body>
+<header class="kpi-header"><div class="brand"><i class="fa-solid fa-boxes-stacked"></i> Inventory KPIs <span class="tag">Stock & Consumption</span></div><nav style="display:flex;gap:4px;"><a href="index.html"><i class="fa-solid fa-house"></i> Overview</a><a href="kpi-activities.html"><i class="fa-solid fa-list-check"></i> Activities</a><a href="kpi-inventory.html" class="active"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a><a href="kpi-vendors.html"><i class="fa-solid fa-truck"></i> Vendors</a><a href="kpi-staff.html"><i class="fa-solid fa-users"></i> Staff</a></nav></header>
+<main class="kpi-main">
+<div class="page-hero" style="background:linear-gradient(135deg,#1e3a8a,var(--blue));"><div><h1><i class="fa-solid fa-boxes-stacked"></i> Inventory KPIs</h1><div class="hero-sub">Stock levels · Consumption trends · Low-stock alerts · Request pipeline</div></div><i class="fa-solid fa-warehouse hero-icon"></i></div>
+<div class="card" style="padding:14px 18px;"><div class="filters-bar"><select id="deptFilter"><option value="All">All Departments</option><option value="HK">H&K</option><option value="ME">M&E</option><option value="Security">Security</option><option value="EHS">EHS</option></select><select id="periodFilter"><option value="today">Today</option><option value="week">Last 7 Days</option><option value="month" selected>Last 30 Days</option><option value="quarter">This Quarter</option></select><button class="btn btn-primary" id="applyBtn"><i class="fa-solid fa-filter"></i> Apply</button><button class="btn btn-excel" style="margin-left:auto;" id="exportBtn"><i class="fa-solid fa-file-excel"></i> Export Excel</button></div></div>
+<div class="kpi-row"><div class="kpi-box k-total"><div class="kpi-val" id="kItems">—</div><div class="kpi-lbl">Total Items</div></div><div class="kpi-box k-danger"><div class="kpi-val" id="kLow">—</div><div class="kpi-lbl">Low Stock</div></div><div class="kpi-box k-ok"><div class="kpi-val" id="kIssues">—</div><div class="kpi-lbl">Issues (Period)</div></div><div class="kpi-box k-warn"><div class="kpi-val" id="kReqs">—</div><div class="kpi-lbl">Pending Reqs</div></div><div class="kpi-box k-blue"><div class="kpi-val" id="kValue">—</div><div class="kpi-lbl">Inventory Value</div></div></div>
+<div class="chart-grid"><div class="card"><div class="card-title"><i class="fa-solid fa-chart-pie"></i> Stock Health by Dept</div><div class="chart-wrap"><canvas id="c1"></canvas></div></div><div class="card"><div class="card-title"><i class="fa-solid fa-chart-bar"></i> Top 10 Consumed</div><div class="chart-wrap"><canvas id="c2"></canvas></div></div></div>
+<div class="chart-grid"><div class="card"><div class="card-title"><i class="fa-solid fa-chart-line"></i> Daily Issue Trend (30d)</div><div class="chart-wrap"><canvas id="c3"></canvas></div></div><div class="card"><div class="card-title"><i class="fa-solid fa-tags"></i> Consumption by Category</div><div class="chart-wrap"><canvas id="c4"></canvas></div></div></div>
+<div class="card"><div class="card-header"><div class="card-title" style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Low Stock Alerts</div><button class="btn btn-excel btn-sm" onclick="exportTableToExcel('lowT','LowStock','Low_Stock.xlsx')"><i class="fa-solid fa-file-excel"></i> Export</button></div><div class="table-wrap"><table id="lowT"><thead><tr><th>#</th><th>Material</th><th>Dept</th><th>Category</th><th>Available</th><th>Stock %</th><th>Est. Days Left</th><th>Last Received</th></tr></thead><tbody id="lowB"><tr><td colspan="8"><div class="loader"><div class="spinner"></div></div></td></tr></tbody></table></div></div>
+<div class="card"><div class="card-header"><div class="card-title"><i class="fa-solid fa-receipt"></i> Issue Log</div><button class="btn btn-excel btn-sm" onclick="exportTableToExcel('issT','IssueLog','Issue_Log.xlsx')"><i class="fa-solid fa-file-excel"></i> Export</button></div><div class="table-wrap"><table id="issT"><thead><tr><th>#</th><th>Date/Time</th><th>Material</th><th>Dept</th><th>Qty Issued</th><th>Supervisor</th><th>Shift</th><th>Purpose</th></tr></thead><tbody id="issB"><tr><td colspan="8"><div class="loader"><div class="spinner"></div></div></td></tr></tbody></table></div></div>
+</main>
+<script>
+const db=initKpiFirebase();let c1=null,c2=null,c3=null,c4=null;
+document.getElementById('applyBtn').addEventListener('click',load);
+document.getElementById('exportBtn').addEventListener('click',()=>alert('Loading data for export…'));
+load();
+async function load(){
+  const dept=document.getElementById('deptFilter').value,period=document.getElementById('periodFilter').value;
+  const{start,end}=getDateRange(period);const startTs=firebase.firestore.Timestamp.fromDate(start),endTs=firebase.firestore.Timestamp.fromDate(end);
+  const ago30=new Date();ago30.setDate(ago30.getDate()-30);ago30.setHours(0,0,0,0);
+  try{
+    const[invSnap,issSnap,reqSnap,rateSnap]=await Promise.all([
+      (dept==='All'?db.collection('inventory'):db.collection('inventory').where('department','==',dept)).get(),
+      db.collection('issuedItems').where('timestamp','>=',startTs).where('timestamp','<=',endTs).get(),
+      db.collection('materialRequests').where('status','==','Pending').get(),
+      db.collection('issuedItems').where('timestamp','>=',firebase.firestore.Timestamp.fromDate(ago30)).get()
+    ]);
+    const invs=invSnap.docs.map(d=>({id:d.id,...d.data()}));
+    const issues=issSnap.docs.map(d=>d.data()).filter(r=>dept==='All'||r.department===dept);
+    const reqs=reqSnap.docs.map(d=>d.data()).filter(r=>dept==='All'||r.department===dept);
+    const rate30=rateSnap.docs.map(d=>d.data()).filter(r=>dept==='All'||r.department===dept);
+    const usedMap={},rateMap={};
+    issues.forEach(r=>{if(r.materialId)usedMap[r.materialId]=(usedMap[r.materialId]||0)+(r.deductedQtyInInvUnit||0);});
+    rate30.forEach(r=>{if(r.materialId)rateMap[r.materialId]=(rateMap[r.materialId]||0)+(r.deductedQtyInInvUnit||0);});
+    const lowItems=invs.filter(r=>{const a=r.availableQty??r.receivedQty??0,t=r.totalQty??r.receivedQty??a;return t>0&&(a/t)<0.2;});
+    const totalVal=invs.reduce((s,r)=>s+(r.inventoryValue||0),0);
+    setText('kItems',invs.length);setText('kLow',lowItems.length);setText('kIssues',issues.length);setText('kReqs',reqs.length);setText('kValue',fmtCurrency(Math.round(totalVal)));
+    /* Chart 1 */
+    const dH={};invs.forEach(r=>{const d=r.department||'?';if(!dH[d])dH[d]={ok:0,low:0,crit:0};const a=r.availableQty??r.receivedQty??0,t=r.totalQty??r.receivedQty??a,p=t>0?(a/t)*100:100;if(p>40)dH[d].ok++;else if(p>15)dH[d].low++;else dH[d].crit++;});
+    const dL=Object.keys(dH);const ctx1=document.getElementById('c1').getContext('2d');if(c1)c1.destroy();
+    c1=new Chart(ctx1,{type:'bar',data:{labels:dL,datasets:[{label:'Good',data:dL.map(l=>dH[l].ok),backgroundColor:KPI_COLORS.green,borderRadius:4},{label:'Low',data:dL.map(l=>dH[l].low),backgroundColor:KPI_COLORS.amber,borderRadius:4},{label:'Critical',data:dL.map(l=>dH[l].crit),backgroundColor:KPI_COLORS.red,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}}});
+    /* Chart 2 */
+    const top=invs.map(r=>({name:r.materialName||'?',used:usedMap[r.id]||0})).filter(r=>r.used>0).sort((a,b)=>b.used-a.used).slice(0,10);
+    const ctx2=document.getElementById('c2').getContext('2d');if(c2)c2.destroy();
+    c2=new Chart(ctx2,{type:'bar',data:{labels:top.map(r=>r.name),datasets:[{data:top.map(r=>r.used),backgroundColor:KPI_COLORS.blue,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true}}}});
+    /* Chart 3 */
+    const days=getLastNDays(30),dm={};issues.forEach(r=>{const d=r.timestamp?.toDate?r.timestamp.toDate():parseDate(r.date);if(d){const k=isoDate(d);dm[k]=(dm[k]||0)+1;}});
+    const ctx3=document.getElementById('c3').getContext('2d');if(c3)c3.destroy();
+    c3=new Chart(ctx3,{type:'line',data:{labels:days.map(d=>d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})),datasets:[{data:days.map(d=>dm[isoDate(d)]||0),borderColor:KPI_COLORS.blue,backgroundColor:'rgba(29,78,216,.1)',fill:true,tension:.35,pointRadius:2,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+    /* Chart 4 */
+    const cm={};issues.forEach(r=>{const c=r.category||'Other';cm[c]=(cm[c]||0)+1;});const cats=Object.entries(cm).sort((a,b)=>b[1]-a[1]);
+    const ctx4=document.getElementById('c4').getContext('2d');if(c4)c4.destroy();
+    c4=new Chart(ctx4,{type:'doughnut',data:{labels:cats.map(c=>c[0]),datasets:[{data:cats.map(c=>c[1]),backgroundColor:KPI_PALETTE,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},cutout:'50%'}});
+    /* Low stock table */
+    const lowB=document.getElementById('lowB');lowB.innerHTML='';
+    lowItems.sort((a,b)=>{const pa=(a.availableQty??a.receivedQty??0)/(a.totalQty??a.receivedQty??1),pb=(b.availableQty??b.receivedQty??0)/(b.totalQty??b.receivedQty??1);return pa-pb;});
+    lowItems.forEach((r,i)=>{const a=r.availableQty??r.receivedQty??0,t=r.totalQty??r.receivedQty??a,pct=t>0?Math.round((a/t)*100):0,daily=rateMap[r.id]?rateMap[r.id]/30:0,days=daily>0?Math.floor(a/daily):'—';lowB.insertAdjacentHTML('beforeend',`<tr class="${pct<10?'row-danger':'row-warn'}"><td>${i+1}</td><td class="bold">${esc(r.materialName||'—')}</td><td>${esc(r.department||'—')}</td><td>${esc(r.category||'—')}</td><td><b>${esc(baseToHuman(a,r.containerUnit||''))}</b></td><td><span class="badge ${pct<10?'b-danger':'b-warn'}">${pct}%</span></td><td>${typeof days==='number'?'~'+days+'d':days}</td><td>${esc(r.lastReceivedDate||'—')}</td></tr>`);});
+    if(!lowItems.length)lowB.innerHTML='<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--ok);font-weight:700">✅ All items above 20%</td></tr>';
+    /* Issue log */
+    const issB=document.getElementById('issB');issB.innerHTML='';
+    issues.slice().sort((a,b)=>(b.timestamp?.seconds||0)-(a.timestamp?.seconds||0)).forEach((r,i)=>{const dt=r.timestamp?.toDate?r.timestamp.toDate():parseDate(r.date||'');const dtStr=dt?dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+dt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:true}):'—';const qty=r.issuedQtyDisplay||r.deductedDisplay||baseToHuman(r.deductedQtyInInvUnit||0,r.inventoryUnit||'');issB.insertAdjacentHTML('beforeend',`<tr><td>${i+1}</td><td>${esc(dtStr)}</td><td class="bold">${esc(r.materialName||'—')}</td><td>${esc(r.department||'—')}</td><td style="color:var(--danger);font-weight:700">−${esc(qty)}</td><td>${esc(r.supervisor||'—')}</td><td>${esc(r.shift||'—')}</td><td>${esc(r.purpose||'—')}</td></tr>`);});
+    if(!issues.length)issB.innerHTML='<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--gray5)">No issues in period</td></tr>';
+  }catch(e){console.error(e);alert('Load failed: '+e.message);}
+}
+</script></body></html>

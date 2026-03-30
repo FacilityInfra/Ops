@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>KPI Dashboard — Facility Management</title>
+<link rel="stylesheet" href="kpi-style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/pptxgenjs@latest/dist/pptxgen.min.js"></script>
+<script src="kpi-config.js"></script>
+<style>
+  /* Health gauge — semi-circle doughnut trick */
+  .gauge-wrap  { position:relative; width:160px; height:88px; margin:0 auto; overflow:hidden; }
+  .gauge-wrap canvas { position:absolute; top:0; left:0; }
+  .gauge-val   { position:absolute; bottom:0; width:100%; text-align:center;
+                 font-size:1.7rem; font-weight:800; color:var(--t7); }
+  .gauge-grade { font-size:12px; font-weight:700; text-align:center; color:var(--gray5);
+                 text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
+
+  /* Module cards */
+  .module-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin-bottom:18px; }
+  .module-card {
+    background:var(--white); border-radius:14px; padding:22px 18px;
+    box-shadow:var(--shadow); cursor:pointer; text-decoration:none;
+    display:flex; flex-direction:column; gap:8px;
+    transition:.2s; border-top:4px solid transparent;
+  }
+  .module-card:hover { transform:translateY(-4px); box-shadow:0 10px 28px rgba(15,23,42,.12); }
+  .mc-icon { width:46px; height:46px; border-radius:12px;
+             display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .mc-title { font-size:15px; font-weight:800; color:var(--gray9); }
+  .mc-desc  { font-size:12px; color:var(--gray5); line-height:1.45; flex:1; }
+  .mc-stats { display:flex; gap:14px; margin-top:6px; }
+  .mc-stat  { text-align:center; }
+  .mc-stat .v { font-size:1.3rem; font-weight:800; }
+  .mc-stat .l { font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:var(--gray5); font-weight:700; }
+
+  /* Alert strip */
+  .alert-strip { display:flex; flex-direction:column; gap:7px; }
+  .alert-item  { display:flex; align-items:center; gap:10px;
+                 padding:9px 13px; border-radius:9px; border:1px solid; }
+  .alert-item.crit { background:var(--danger-l); border-color:#fca5a5; }
+  .alert-item.warn { background:var(--warn-l);   border-color:#fde68a; }
+  .alert-item.info { background:var(--t0);        border-color:var(--t1); }
+  .alert-icon { font-size:15px; flex-shrink:0; }
+  .alert-txt  { flex:1; font-size:13px; font-weight:600; }
+  .alert-val  { font-size:12px; font-weight:800; }
+
+  /* Health bar rows */
+  .health-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .health-row .hl  { font-size:12px; font-weight:700; color:var(--gray7); min-width:130px; }
+  .health-row .hp  { flex:1; }
+  .health-row .hv  { font-size:12px; font-weight:800; min-width:36px; text-align:right; }
+</style>
+</head>
+<body>
+
+<header class="kpi-header">
+  <div class="brand">
+    <i class="fa-solid fa-chart-line"></i>
+    Facility KPI Dashboard
+    <span class="tag">Executive Overview</span>
+  </div>
+  <nav style="display:flex;gap:4px;">
+    <a href="index.html" class="active"><i class="fa-solid fa-house"></i> Overview</a>
+    <a href="kpi-activities.html"><i class="fa-solid fa-list-check"></i> Activities</a>
+    <a href="kpi-inventory.html"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
+    <a href="kpi-vendors.html"><i class="fa-solid fa-truck"></i> Vendors</a>
+    <a href="kpi-staff.html"><i class="fa-solid fa-users"></i> Staff</a>
+  </nav>
+</header>
+
+<main class="kpi-main">
+
+  <!-- PAGE HERO -->
+  <div class="page-hero">
+    <div>
+      <h1><i class="fa-solid fa-chart-line"></i> Executive Overview</h1>
+      <div class="hero-sub">Real-time facility performance snapshot across all KPI dimensions</div>
+    </div>
+    <i class="fa-solid fa-building hero-icon"></i>
+  </div>
+
+  <!-- TOP FILTER BAR -->
+  <div class="card" style="padding:14px 18px;margin-bottom:16px;">
+    <div class="filters-bar">
+      <label style="font-size:13px;font-weight:700;">Period:</label>
+      <select id="periodSelect">
+        <option value="today">Today</option>
+        <option value="week">Last 7 Days</option>
+        <option value="month" selected>This Month</option>
+        <option value="quarter">This Quarter</option>
+      </select>
+      <select id="deptSelect">
+        <option value="All">All Departments</option>
+        <option value="HK">H&K</option>
+        <option value="ME">M&E</option>
+        <option value="Security">Security</option>
+        <option value="EHS">EHS</option>
+      </select>
+      <button class="btn btn-primary" id="applyBtn">
+        <i class="fa-solid fa-rotate-right"></i> Refresh
+      </button>
+      <span id="lastUpdatedLbl" style="font-size:11px;color:var(--gray5);margin-left:8px;"></span>
+      <button class="btn btn-excel" id="exportAllBtn" style="margin-left:auto;">
+        <i class="fa-solid fa-file-excel"></i> Export All Sheets
+      </button>
+    </div>
+  </div>
+
+  <!-- TOP-LEVEL KPIs (8 boxes) -->
+  <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
+    <div class="kpi-box k-ok">
+      <div class="kpi-val" id="ovActDone">—</div>
+      <div class="kpi-lbl">Activities Completed</div>
+      <div class="kpi-sub" id="ovActPct"></div>
+    </div>
+    <div class="kpi-box k-danger">
+      <div class="kpi-val" id="ovActPending">—</div>
+      <div class="kpi-lbl">Activities Pending</div>
+    </div>
+    <div class="kpi-box k-blue">
+      <div class="kpi-val" id="ovVendComp">—</div>
+      <div class="kpi-lbl">Vendor Compliance</div>
+    </div>
+    <div class="kpi-box k-warn">
+      <div class="kpi-val" id="ovLowStock">—</div>
+      <div class="kpi-lbl">Low Stock Items</div>
+    </div>
+  </div>
+  <div class="kpi-row" style="grid-template-columns:repeat(4,1fr);">
+    <div class="kpi-box k-total">
+      <div class="kpi-val" id="ovIssues">—</div>
+      <div class="kpi-lbl">Material Issues</div>
+    </div>
+    <div class="kpi-box" style="border-top:3px solid #7c3aed;">
+      <div class="kpi-val" style="color:#7c3aed;" id="ovShifts">—</div>
+      <div class="kpi-lbl">Shift Logins</div>
+    </div>
+    <div class="kpi-box k-danger">
+      <div class="kpi-val" id="ovReqs">—</div>
+      <div class="kpi-lbl">Pending Requests</div>
+    </div>
+    <div class="kpi-box k-ok">
+      <div class="kpi-val" id="ovActiveSups">—</div>
+      <div class="kpi-lbl">Active Supervisors</div>
+    </div>
+  </div>
+
+  <!-- HEALTH SCORE + ALERTS -->
+  <div class="chart-grid">
+
+    <!-- Health gauge card -->
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-heart-pulse"></i> Facility Health Score</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:18px;">
+        <div class="gauge-wrap">
+          <canvas id="gaugeCanvas" width="160" height="160"></canvas>
+          <div class="gauge-val" id="gaugeVal">—</div>
+        </div>
+        <div class="gauge-grade" id="gaugeGrade">Calculating…</div>
+      </div>
+      <div class="health-row">
+        <span class="hl"><i class="fa-solid fa-list-check" style="color:var(--t5);margin-right:5px;"></i>Activity Completion</span>
+        <div class="hp"><div class="prog-bar"><div class="prog-fill" id="hBar1" style="width:0%"></div></div></div>
+        <span class="hv" id="hVal1">—</span>
+      </div>
+      <div class="health-row">
+        <span class="hl"><i class="fa-solid fa-boxes-stacked" style="color:var(--blue);margin-right:5px;"></i>Inventory Health</span>
+        <div class="hp"><div class="prog-bar"><div class="prog-fill" id="hBar2" style="width:0%"></div></div></div>
+        <span class="hv" id="hVal2">—</span>
+      </div>
+      <div class="health-row">
+        <span class="hl"><i class="fa-solid fa-truck" style="color:var(--warn);margin-right:5px;"></i>Vendor Compliance</span>
+        <div class="hp"><div class="prog-bar"><div class="prog-fill" id="hBar3" style="width:0%"></div></div></div>
+        <span class="hv" id="hVal3">—</span>
+      </div>
+      <div class="health-row">
+        <span class="hl"><i class="fa-solid fa-users" style="color:#7c3aed;margin-right:5px;"></i>Staff Coverage</span>
+        <div class="hp"><div class="prog-bar"><div class="prog-fill" id="hBar4" style="width:0%"></div></div></div>
+        <span class="hv" id="hVal4">—</span>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--gray5);text-align:center;">
+        Weighted: Activities 40% · Inventory 30% · Vendors 20% · Staff 10%
+      </div>
+    </div>
+
+    <!-- Alerts card -->
+    <div class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i>
+        Active Alerts & Action Items
+      </div>
+      <div class="alert-strip" id="alertStrip">
+        <div class="loader"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 4 MODULE NAV CARDS -->
+  <div class="module-grid">
+    <a href="kpi-activities.html" class="module-card" style="border-top-color:var(--t5);">
+      <div class="mc-icon" style="background:var(--t1);color:var(--t7);">
+        <i class="fa-solid fa-list-check"></i>
+      </div>
+      <div class="mc-title">Work Activities</div>
+      <div class="mc-desc">Completion rates, supervisor performance, department breakdown, PPT reports</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><div class="v" style="color:var(--t7);" id="mc-actTotal">—</div><div class="l">Total</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--ok);"  id="mc-actDone">—</div><div class="l">Done</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--warn);" id="mc-actPct">—</div><div class="l">Rate</div></div>
+      </div>
+    </a>
+
+    <a href="kpi-inventory.html" class="module-card" style="border-top-color:var(--blue);">
+      <div class="mc-icon" style="background:var(--blue-l);color:var(--blue);">
+        <i class="fa-solid fa-boxes-stacked"></i>
+      </div>
+      <div class="mc-title">Inventory</div>
+      <div class="mc-desc">Stock levels, consumption trends, low-stock alerts, material request pipeline</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><div class="v" style="color:var(--blue);"   id="mc-invTotal">—</div><div class="l">Items</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--danger);" id="mc-invLow">—</div><div class="l">Low</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--warn);"   id="mc-invReqs">—</div><div class="l">Requests</div></div>
+      </div>
+    </a>
+
+    <a href="kpi-vendors.html" class="module-card" style="border-top-color:var(--warn);">
+      <div class="mc-icon" style="background:var(--warn-l);color:var(--warn);">
+        <i class="fa-solid fa-truck"></i>
+      </div>
+      <div class="mc-title">Vendor Activities</div>
+      <div class="mc-desc">Visit compliance, outcome tracking, frequency adherence, confirmation logs</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><div class="v" style="color:var(--warn);" id="mc-vendSched">—</div><div class="l">Scheduled</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--ok);"   id="mc-vendDone">—</div><div class="l">Confirmed</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--t7);"   id="mc-vendPct">—</div><div class="l">Rate</div></div>
+      </div>
+    </a>
+
+    <a href="kpi-staff.html" class="module-card" style="border-top-color:#7c3aed;">
+      <div class="mc-icon" style="background:#ede9fe;color:#7c3aed;">
+        <i class="fa-solid fa-users"></i>
+      </div>
+      <div class="mc-title">Staff & Shifts</div>
+      <div class="mc-desc">Supervisor coverage, shift attendance, individual activity leaderboard</div>
+      <div class="mc-stats">
+        <div class="mc-stat"><div class="v" style="color:#7c3aed;" id="mc-staffLogins">—</div><div class="l">Logins</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--t7);" id="mc-staffSups">—</div><div class="l">Supervisors</div></div>
+        <div class="mc-stat"><div class="v" style="color:var(--ok);" id="mc-staffAvg">—</div><div class="l">Avg Acts</div></div>
+      </div>
+    </a>
+  </div>
+
+  <!-- TREND CHARTS -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-chart-line"></i> 30-Day Activity Completion Trend</div>
+      <div class="chart-wrap"><canvas id="actTrendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-building"></i> Department Completion Snapshot</div>
+      <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-user-group"></i> Top Supervisor Performance</div>
+      <div class="chart-wrap"><canvas id="supChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-rotate"></i> Shift Distribution (Period)</div>
+      <div class="chart-wrap"><canvas id="shiftChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="text-align:center;padding:14px;color:var(--gray5);font-size:12px;">
+    <i class="fa-solid fa-circle-info" style="margin-right:5px;"></i>
+    Facility Management KPI Dashboard — Built by Subodh Kumar · JLL ·
+    <span id="footerDate"></span>
+  </div>
+
+</main>
+
+<script>
+const db = initKpiFirebase();
+let charts = {};
+
+document.getElementById('footerDate').textContent = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' });
+document.getElementById('applyBtn').addEventListener('click', loadAll);
+document.getElementById('exportAllBtn').addEventListener('click', exportAll);
+loadAll();
+
+/* ════════════════════════════════════════════════════════════
+   MAIN LOAD
+════════════════════════════════════════════════════════════ */
+async function loadAll() {
+  const period = document.getElementById('periodSelect').value;
+  const dept   = document.getElementById('deptSelect').value;
+  const { start, end } = getDateRange(period);
+  const startTs = firebase.firestore.Timestamp.fromDate(start);
+  const endTs   = firebase.firestore.Timestamp.fromDate(end);
+
+  try {
+    /* Parallel fetch of all needed collections */
+    const [subSnap, invSnap, issSnap, schSnap, reqSnap, shiftSnap] = await Promise.all([
+      db.collection('submissions')
+        .where('timestamp', '>=', startTs)
+        .where('timestamp', '<=', endTs).get(),
+      db.collection('inventory').get(),
+      db.collection('issuedItems')
+        .where('timestamp', '>=', startTs).get(),
+      db.collection('activitySchedules')
+        .where('activityType', '==', 'vendor').get(),
+      db.collection('materialRequests')
+        .where('status', '==', 'Pending').get(),
+      db.collection('shifts')
+        .where('loginAt', '>=', startTs).get()
+    ]);
+
+    /* Map and filter by dept */
+    const subs   = subSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const invs   = invSnap.docs.map(d => d.data());
+    const issues = issSnap.docs.map(d => d.data());
+    const sched  = schSnap.docs.map(d => d.data());
+    const reqs   = reqSnap.docs.map(d => d.data());
+    const shifts = shiftSnap.docs.map(d => d.data());
+
+    const f = arr => dept === 'All' ? arr : arr.filter(r => r.department === dept);
+    const mySubs   = f(subs);
+    const myInvs   = f(invs);
+    const myIssues = f(issues);
+    const myReqs   = f(reqs);
+    const myShifts = f(shifts);
+
+    /* ── Activity KPIs ── */
+    const intSubs  = mySubs.filter(r => r.activityType !== 'vendor' && r.department !== 'Vendor');
+    const actDone  = intSubs.filter(r => r.photos?.length > 0).length;
+    const actTotal = intSubs.length;
+    const actPend  = actTotal - actDone;
+    const actPct   = actTotal ? Math.round((actDone / actTotal) * 100) : 0;
+
+    /* ── Inventory KPIs ── */
+    const lowItems = myInvs.filter(r => {
+      const a = r.availableQty ?? r.receivedQty ?? 0;
+      const t = r.totalQty ?? r.receivedQty ?? a;
+      return t > 0 && (a / t) < 0.2;
+    });
+    const invHealth = myInvs.length
+      ? Math.round(((myInvs.length - lowItems.length) / myInvs.length) * 100)
+      : 100;
+
+    /* ── Vendor KPIs ── */
+    const vendSubs  = mySubs.filter(r => r.activityType === 'vendor' || r.department === 'Vendor');
+    const vendConf  = vendSubs.filter(r => r.photos?.length > 0).length;
+    const vendSched = sched.length;
+    const vendPct   = vendSched ? Math.round((vendConf / vendSched) * 100) : 0;
+
+    /* ── Staff KPIs ── */
+    const uniqueSups = new Set(myShifts.map(s => s.supervisorName).filter(Boolean)).size;
+    const avgActs    = uniqueSups > 0 ? (actDone / uniqueSups).toFixed(1) : '—';
+    const staffScore = myShifts.length > 0 ? Math.min(100, Math.round((uniqueSups / 5) * 100)) : 0;
+
+    /* ── Fill top KPI strip ── */
+    setText('ovActDone',    actDone);
+    setText('ovActPct',     actPct + '% completion rate');
+    setText('ovActPending', actPend);
+    setText('ovVendComp',   vendPct + '%');
+    setText('ovLowStock',   lowItems.length);
+    setText('ovIssues',     myIssues.length);
+    setText('ovShifts',     myShifts.length);
+    setText('ovReqs',       myReqs.length);
+    setText('ovActiveSups', uniqueSups);
+
+    /* ── Module card stats ── */
+    setText('mc-actTotal',  actTotal); setText('mc-actDone', actDone); setText('mc-actPct', actPct + '%');
+    setText('mc-invTotal',  myInvs.length); setText('mc-invLow', lowItems.length); setText('mc-invReqs', myReqs.length);
+    setText('mc-vendSched', vendSched); setText('mc-vendDone', vendConf); setText('mc-vendPct', vendPct + '%');
+    setText('mc-staffLogins', myShifts.length); setText('mc-staffSups', uniqueSups); setText('mc-staffAvg', avgActs);
+
+    /* ── Health score ── */
+    const health = Math.round(actPct * 0.40 + invHealth * 0.30 + vendPct * 0.20 + staffScore * 0.10);
+    const grade  = health >= 85 ? 'Excellent ✅' : health >= 70 ? 'Good 👍' : health >= 50 ? 'Fair ⚠️' : 'Needs Attention 🔴';
+    setText('gaugeVal',   health + '%');
+    setText('gaugeGrade', grade);
+    drawGauge(health);
+
+    const setBar = (id, valId, pct, cls) => {
+      const bar = document.getElementById(id);
+      if (bar) { bar.style.width = pct + '%'; bar.className = 'prog-fill' + (cls ? ' ' + cls : ''); }
+      setText(valId, pct + '%');
+    };
+    setBar('hBar1', 'hVal1', actPct,    actPct  < 50 ? 'p-danger' : actPct  < 70 ? 'p-warn' : '');
+    setBar('hBar2', 'hVal2', invHealth, invHealth < 50 ? 'p-danger' : invHealth < 70 ? 'p-warn' : '');
+    setBar('hBar3', 'hVal3', vendPct,   vendPct  < 50 ? 'p-danger' : vendPct  < 70 ? 'p-warn' : '');
+    setBar('hBar4', 'hVal4', staffScore, staffScore < 50 ? 'p-danger' : '');
+
+    /* ── Alerts ── */
+    buildAlerts({ actPct, actPend, lowItems, myReqs, vendPct, vendSched, myShifts, uniqueSups });
+
+    /* ── 30-day trend ── */
+    const days30  = getLastNDays(30);
+    const dayMap  = {};
+    intSubs.forEach(r => {
+      const d = r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date);
+      if (d && r.photos?.length > 0) { const k = isoDate(d); dayMap[k] = (dayMap[k] || 0) + 1; }
+    });
+    drawChart('actTrendChart', 'line', {
+      labels: days30.map(d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })),
+      datasets: [{
+        label: 'Completed',
+        data: days30.map(d => dayMap[isoDate(d)] || 0),
+        borderColor: KPI_COLORS.teal,
+        backgroundColor: 'rgba(13,148,136,.1)',
+        fill: true, tension: .35, pointRadius: 2, borderWidth: 2
+      }]
+    }, { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } });
+
+    /* ── Dept chart ── */
+    const dm = {};
+    intSubs.forEach(r => {
+      const d = r.department || 'Unknown';
+      if (!dm[d]) dm[d] = { done: 0, tot: 0 };
+      dm[d].tot++;
+      if (r.photos?.length > 0) dm[d].done++;
+    });
+    const dL = Object.keys(dm);
+    drawChart('deptChart', 'bar', {
+      labels: dL,
+      datasets: [
+        { label: 'Completed', data: dL.map(l => dm[l].done), backgroundColor: KPI_COLORS.green, borderRadius: 4 },
+        { label: 'Pending',   data: dL.map(l => dm[l].tot - dm[l].done), backgroundColor: KPI_COLORS.red, borderRadius: 4 }
+      ]
+    }, { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }, plugins: { legend: { position: 'bottom' } } });
+
+    /* ── Supervisor chart ── */
+    const sm = {};
+    intSubs.forEach(r => {
+      const s = r.supervisor || '?';
+      if (!sm[s]) sm[s] = 0;
+      if (r.photos?.length > 0) sm[s]++;
+    });
+    const sArr = Object.entries(sm).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    drawChart('supChart', 'bar', {
+      labels: sArr.map(x => x[0]),
+      datasets: [{ data: sArr.map(x => x[1]), backgroundColor: KPI_COLORS.teal, borderRadius: 4 }]
+    }, { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } });
+
+    /* ── Shift pie ── */
+    const shiftCount = {};
+    myShifts.forEach(s => { const sh = s.shift || 'General'; shiftCount[sh] = (shiftCount[sh] || 0) + 1; });
+    const shiftCols  = { Morning: KPI_COLORS.morning, Afternoon: KPI_COLORS.afternoon, Night: KPI_COLORS.night, General: KPI_COLORS.general };
+    const sL         = Object.keys(shiftCount);
+    drawChart('shiftChart', 'doughnut', {
+      labels: sL,
+      datasets: [{ data: sL.map(s => shiftCount[s]), backgroundColor: sL.map(s => shiftCols[s] || KPI_COLORS.gray), borderWidth: 0 }]
+    }, { cutout: '55%', plugins: { legend: { position: 'bottom' } } });
+
+    setText('lastUpdatedLbl', 'Updated ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true }));
+
+  } catch(e) {
+    console.error('Overview error:', e);
+    setEl('alertStrip', `<p style="color:var(--danger);font-weight:600;padding:8px;">Error loading data: ${esc(e.message)}</p>`);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   HEALTH GAUGE
+════════════════════════════════════════════════════════════ */
+let gaugeChart = null;
+function drawGauge(pct) {
+  const ctx = document.getElementById('gaugeCanvas').getContext('2d');
+  if (gaugeChart) gaugeChart.destroy();
+  const col = pct >= 70 ? KPI_COLORS.teal : pct >= 50 ? KPI_COLORS.amber : KPI_COLORS.red;
+  gaugeChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [pct, 100 - pct],
+        backgroundColor: [col, '#f1f5f9'],
+        borderWidth: 0,
+        circumference: 180,
+        rotation: 270
+      }]
+    },
+    options: {
+      responsive: false,
+      cutout: '76%',
+      plugins: { legend: { display: false }, tooltip: { enabled: false } }
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   ALERTS BUILDER
+════════════════════════════════════════════════════════════ */
+function buildAlerts({ actPct, actPend, lowItems, myReqs, vendPct, vendSched, myShifts, uniqueSups }) {
+  const alerts = [];
+
+  if (actPct < 50 && actPend > 0)
+    alerts.push({ type:'crit', icon:'fa-circle-xmark', txt:`Activity completion is at ${actPct}% — ${actPend} activities still pending`, val: actPct + '%' });
+  else if (actPct < 75 && actPend > 0)
+    alerts.push({ type:'warn', icon:'fa-clock', txt:`${actPend} activities pending — completion at ${actPct}%`, val: actPend });
+
+  if (lowItems.length > 0)
+    alerts.push({ type: lowItems.length >= 5 ? 'crit' : 'warn', icon:'fa-boxes-stacked', txt:`${lowItems.length} inventory item${lowItems.length > 1 ? 's' : ''} below 20% stock threshold`, val: lowItems.length });
+
+  if (myReqs.length > 0)
+    alerts.push({ type:'warn', icon:'fa-file-circle-plus', txt:`${myReqs.length} material request${myReqs.length > 1 ? 's' : ''} awaiting admin approval`, val: myReqs.length });
+
+  if (vendSched > 0 && vendPct < 80)
+    alerts.push({ type: vendPct < 50 ? 'crit' : 'warn', icon:'fa-truck', txt:`Vendor compliance at ${vendPct}% — target is 80%+`, val: vendPct + '%' });
+
+  if (myShifts.length === 0)
+    alerts.push({ type:'info', icon:'fa-circle-info', txt:`No shift logins recorded for the selected period — verify staff attendance`, val: '—' });
+  else if (uniqueSups < 2)
+    alerts.push({ type:'warn', icon:'fa-user-slash', txt:`Only ${uniqueSups} supervisor(s) active — check coverage`, val: uniqueSups });
+
+  const el = document.getElementById('alertStrip');
+  if (!alerts.length) {
+    el.innerHTML = `<div style="text-align:center;padding:24px;color:var(--ok);font-weight:700;font-size:14px;">
+      <i class="fa-solid fa-circle-check" style="font-size:26px;display:block;margin-bottom:8px;"></i>
+      All systems healthy — no active alerts
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = alerts.map(a => `
+    <div class="alert-item ${a.type}">
+      <span class="alert-icon" style="color:${a.type === 'crit' ? 'var(--danger)' : a.type === 'warn' ? 'var(--warn)' : 'var(--t7)'}">
+        <i class="fa-solid ${esc(a.icon)}"></i>
+      </span>
+      <span class="alert-txt">${esc(a.txt)}</span>
+      <span class="alert-val" style="color:${a.type === 'crit' ? 'var(--danger)' : a.type === 'warn' ? 'var(--warn)' : 'var(--t7)'}">
+        ${esc(String(a.val))}
+      </span>
+    </div>`).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   CHART HELPER
+════════════════════════════════════════════════════════════ */
+function drawChart(id, type, data, extraOpts = {}) {
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return;
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(ctx, {
+    type,
+    data,
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      ...extraOpts,
+      plugins: { ...(extraOpts.plugins || {}) }
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   EXPORT ALL — multi-sheet Excel workbook
+════════════════════════════════════════════════════════════ */
+async function exportAll() {
+  const period = document.getElementById('periodSelect').value;
+  const { start, end } = getDateRange(period);
+  const startTs = firebase.firestore.Timestamp.fromDate(start);
+  const endTs   = firebase.firestore.Timestamp.fromDate(end);
+
+  try {
+    const [subSnap, invSnap, issSnap, reqSnap, shiftSnap] = await Promise.all([
+      db.collection('submissions').where('timestamp', '>=', startTs).where('timestamp', '<=', endTs).get(),
+      db.collection('inventory').get(),
+      db.collection('issuedItems').where('timestamp', '>=', startTs).get(),
+      db.collection('materialRequests').get(),
+      db.collection('shifts').where('loginAt', '>=', startTs).get()
+    ]);
+
+    exportToExcel([
+      {
+        name: 'Activities',
+        data: subSnap.docs.map(d => {
+          const r = d.data();
+          return {
+            Date:       r.date || '',
+            Department: r.department || '',
+            Activity:   r.activityName || '',
+            Supervisor: r.supervisor || '',
+            Shift:      r.shift || '',
+            Status:     r.photos?.length > 0 ? 'Completed' : 'Pending',
+            Photos:     r.photos?.length || 0,
+            Notes:      r.notes || ''
+          };
+        })
+      },
+      {
+        name: 'Inventory',
+        data: invSnap.docs.map(d => {
+          const r = d.data();
+          const a = r.availableQty ?? r.receivedQty ?? 0;
+          const t = r.totalQty ?? r.receivedQty ?? a;
+          return {
+            Material:       r.materialName || '',
+            Department:     r.department || '',
+            Category:       r.category || '',
+            Unit:           r.containerUnit || '',
+            Available:      a,
+            Total:          t,
+            StockPct:       t > 0 ? Math.round((a / t) * 100) + '%' : '—',
+            InventoryValue: r.inventoryValue || 0,
+            MRP:            r.mrp || 0,
+            LastReceived:   r.lastReceivedDate || ''
+          };
+        })
+      },
+      {
+        name: 'Issue Log',
+        data: issSnap.docs.map(d => {
+          const r = d.data();
+          const dt = r.timestamp?.toDate ? r.timestamp.toDate() : null;
+          return {
+            Date:      dt ? formatDate(dt) : '',
+            Time:      dt ? dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '',
+            Material:  r.materialName || '',
+            Dept:      r.department || '',
+            Category:  r.category || '',
+            IssuedQty: r.issuedQtyDisplay || r.issuedQty || 0,
+            Supervisor:r.supervisor || '',
+            Shift:     r.shift || '',
+            Purpose:   r.purpose || ''
+          };
+        })
+      },
+      {
+        name: 'Material Requests',
+        data: reqSnap.docs.map(d => {
+          const r = d.data();
+          return {
+            Material:    r.materialName || '',
+            Department:  r.department || '',
+            RequestedQty:r.requestedQty || 0,
+            Unit:        r.requestedUnit || '',
+            Month:       r.monthFor || '',
+            Status:      r.status || '',
+            RequestedBy: r.requestedBy || ''
+          };
+        })
+      },
+      {
+        name: 'Shift Log',
+        data: shiftSnap.docs.map(d => {
+          const s  = d.data();
+          const li = s.loginAt?.toDate  ? s.loginAt.toDate()  : null;
+          const lo = s.logoutAt?.toDate ? s.logoutAt.toDate() : null;
+          const mins = li && lo ? Math.round((lo - li) / 60000) : '';
+          return {
+            Date:        li ? formatDate(li) : '',
+            Supervisor:  s.supervisorName || '',
+            Department:  s.department || '',
+            Shift:       s.shift || '',
+            LoginTime:   li ? li.toLocaleTimeString('en-GB',  { hour: '2-digit', minute: '2-digit' }) : '',
+            LogoutTime:  lo ? lo.toLocaleTimeString('en-GB',  { hour: '2-digit', minute: '2-digit' }) : '',
+            DurationMins: mins,
+            Status:      s.status || ''
+          };
+        })
+      }
+    ], `Facility_KPI_Full_Report_${period}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+
+  } catch(e) {
+    console.error('Export error:', e);
+    alert('Export failed: ' + e.message);
+  }
+}
+</script>
+</body>
+</html>
