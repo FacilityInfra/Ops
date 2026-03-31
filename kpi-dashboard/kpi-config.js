@@ -68,9 +68,14 @@ function formatDate(d) {
 }
 
 function isoDate(d) {
+  /* Use LOCAL date parts — toISOString() shifts to UTC which breaks IST + any UTC+ timezone */
   if (!d) return '';
   const dt = d instanceof Date ? d : parseDate(d);
-  return dt ? dt.toISOString().slice(0,10) : '';
+  if (!dt || isNaN(dt)) return '';
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function startOfDay(d) {
@@ -175,10 +180,52 @@ async function getImageBase64(url) {
   } catch(e) { return null; }
 }
 
+/* ── PPT: wait for PptxGenJS to load (up to 8 seconds) ── */
+function waitForPptxGenJS(timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    if (typeof PptxGenJS !== 'undefined') { resolve(); return; }
+    const interval = 200;
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed += interval;
+      if (typeof PptxGenJS !== 'undefined') {
+        clearInterval(timer);
+        resolve();
+      } else if (elapsed >= timeoutMs) {
+        clearInterval(timer);
+        reject(new Error(
+          'PPT library (PptxGenJS) failed to load.\n\n' +
+          'Please check your internet connection and reload the page.\n\n' +
+          'If the problem persists, open browser DevTools Console to see the error.'
+        ));
+      }
+    }, interval);
+  });
+}
+
 /* ── PPT: generate multi-slide activity photo deck ── */
 async function generateActivityPPT(records, filename) {
-  if (!records || !records.length) { alert('No records with photos'); return; }
-  if (typeof PptxGenJS === 'undefined') { alert('PptxGenJS not loaded'); return; }
+  if (!records || !records.length) { alert('No completed activities with photos to export.'); return; }
+
+  /* Show a generating indicator on whichever button triggered this */
+  const activeBtn = document.activeElement;
+  const origTxt   = activeBtn?.innerHTML;
+  if (activeBtn?.classList?.contains('btn')) {
+    activeBtn.disabled  = true;
+    activeBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating PPT…';
+  }
+
+  /* Wait for library — handles slow networks or CDN delays */
+  try {
+    await waitForPptxGenJS();
+  } catch(loadErr) {
+    alert(loadErr.message);
+    if (activeBtn?.classList?.contains('btn')) {
+      activeBtn.disabled  = false;
+      activeBtn.innerHTML = origTxt;
+    }
+    return;
+  }
 
   const pptx   = new PptxGenJS();
   const slideW = 13.3333, slideH = 7.5;
@@ -232,6 +279,12 @@ async function generateActivityPPT(records, filename) {
     }
   }
   await pptx.writeFile({ fileName: filename || `KPI_PPT_${new Date().toISOString().slice(0,10)}.pptx` });
+
+  /* Re-enable the trigger button */
+  if (activeBtn?.classList?.contains('btn')) {
+    activeBtn.disabled  = false;
+    activeBtn.innerHTML = origTxt;
+  }
 }
 
 /* ── Common Chart.js defaults ── */
