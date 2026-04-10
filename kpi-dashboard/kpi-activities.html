@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Activity KPIs — Facility Dashboard</title>
+<link rel="stylesheet" href="kpi-style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="kpi-config.js"></script>
+</head>
+<body>
+
+<header class="kpi-header">
+  <div class="brand"><i class="fa-solid fa-list-check"></i> Activity KPIs <span class="tag">Work Activities</span></div>
+  <nav style="display:flex;gap:4px;">
+    <a href="index.html"><i class="fa-solid fa-house"></i> Overview</a>
+    <a href="kpi-activities.html" class="active"><i class="fa-solid fa-list-check"></i> Activities</a>
+    <a href="kpi-inventory.html"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
+    <a href="kpi-vendors.html"><i class="fa-solid fa-truck"></i> Vendors</a>
+    <a href="kpi-staff.html"><i class="fa-solid fa-users"></i> Staff</a>
+  </nav>
+</header>
+
+<main class="kpi-main">
+
+  <!-- HERO -->
+  <div class="page-hero">
+    <div>
+      <h1><i class="fa-solid fa-list-check"></i> Work Activity KPIs</h1>
+      <div class="hero-sub">Completion rates · Supervisor performance · Department breakdown · PPT reports</div>
+    </div>
+    <i class="fa-solid fa-check-double hero-icon"></i>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="card" style="padding:14px 18px;">
+    <div class="filters-bar">
+      <select id="deptFilter">
+        <option value="All">All Departments</option>
+        <option value="HK">H&K</option><option value="ME">M&E</option>
+        <option value="Security">Security</option><option value="EHS">EHS</option>
+      </select>
+      <select id="periodFilter">
+        <option value="today">Today</option>
+        <option value="week">Last 7 Days</option>
+        <option value="month" selected>This Month</option>
+        <option value="quarter">This Quarter</option>
+      </select>
+      <label style="font-size:12px;font-weight:700;">From: <input type="date" id="fromDate"/></label>
+      <label style="font-size:12px;font-weight:700;">To: <input type="date" id="toDate"/></label>
+      <button class="btn btn-primary" id="applyBtn"><i class="fa-solid fa-filter"></i> Apply</button>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-excel" id="exportXls"><i class="fa-solid fa-file-excel"></i> Excel</button>
+        <button class="btn btn-ppt" id="exportPpt"><i class="fa-solid fa-file-powerpoint"></i> PPT (Completed)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-row">
+    <div class="kpi-box k-total"><div class="kpi-val" id="kTotal">—</div><div class="kpi-lbl">Total Activities</div></div>
+    <div class="kpi-box k-ok"><div class="kpi-val" id="kDone">—</div><div class="kpi-lbl">Completed</div></div>
+    <div class="kpi-box k-danger"><div class="kpi-val" id="kPending">—</div><div class="kpi-lbl">Pending</div></div>
+    <div class="kpi-box k-blue"><div class="kpi-val" id="kPct">—</div><div class="kpi-lbl">Completion %</div></div>
+    <div class="kpi-box k-warn"><div class="kpi-val" id="kWeek">—</div><div class="kpi-lbl">This Week ✓</div></div>
+    <div class="kpi-box" style="border-top:3px solid #7c3aed;"><div class="kpi-val" style="color:#7c3aed;" id="kMonth">—</div><div class="kpi-lbl">This Month ✓</div></div>
+  </div>
+
+  <!-- CHARTS ROW 1 -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-chart-line"></i> Completion Trend (Daily)</div>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-chart-pie"></i> Completion Rate</div>
+      <div class="chart-wrap"><canvas id="doughnutChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- CHARTS ROW 2 -->
+  <div class="chart-grid">
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-building"></i> Department vs Activity Count</div>
+      <div class="chart-wrap"><canvas id="deptChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><i class="fa-solid fa-user-group"></i> Supervisor Performance</div>
+      <div class="chart-wrap"><canvas id="supChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- USER PERFORMANCE TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-trophy"></i> Supervisor Leaderboard</div>
+      <button class="btn btn-excel btn-sm" onclick="exportTableToExcel('supTable','Supervisors','Supervisor_KPI.xlsx')"><i class="fa-solid fa-file-excel"></i> Export</button>
+    </div>
+    <div class="table-wrap">
+      <table id="supTable">
+        <thead><tr><th>#</th><th>Supervisor</th><th class="hide-mobile">Dept(s)</th><th>Total</th><th>Completed</th><th>Pending</th><th>Completion %</th><th>Trend</th></tr></thead>
+        <tbody id="supBody"><tr><td colspan="8"><div class="loader"><div class="spinner"></div></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ACTIVITY EXECUTION TABLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-table-list"></i> Activity Execution Log</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="tableSearch" placeholder="Search…" style="padding:6px 10px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:13px;"/>
+        <button class="btn btn-excel btn-sm" onclick="exportTableToExcel('execTable','Activities','Activity_Log.xlsx')"><i class="fa-solid fa-file-excel"></i> Export</button>
+        <button class="btn btn-sm btn-outline" id="toggleExec"><i class="fa-solid fa-minus"></i></button>
+      </div>
+    </div>
+    <div id="execWrap">
+      <div class="table-wrap">
+        <table id="execTable">
+          <thead><tr><th>#</th><th>Date</th><th>Supervisor</th><th class="hide-mobile">Department</th><th>Activity</th><th>Shift</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="execBody"><tr><td colspan="8"><div class="loader"><div class="spinner"></div></div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const db = initKpiFirebase();
+let allSubmissions = [], allSchedules = [], filtered = [];
+let trendC=null, dC=null, deptC=null, supC=null;
+
+/* ─── DAY names for weekly schedule matching ─── */
+const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+/* ─── Set default dates ─── */
+const _now = new Date();
+document.getElementById('toDate').value   = _now.toISOString().slice(0,10);
+const _mStart = new Date(_now.getFullYear(), _now.getMonth(), 1);
+document.getElementById('fromDate').value = _mStart.toISOString().slice(0,10);
+
+/* ─── Events ─── */
+document.getElementById('applyBtn').addEventListener('click', load);
+document.getElementById('exportXls').addEventListener('click', exportExcel);
+document.getElementById('exportPpt').addEventListener('click', exportPPT);
+document.getElementById('tableSearch').addEventListener('input', () => renderExecTable(allSubmissions, allSchedules, getPendingSchedules(allSchedules, allSubmissions, getActiveDateRange())));
+
+let execCollapsed = false;
+document.getElementById('toggleExec').addEventListener('click', () => {
+  execCollapsed = !execCollapsed;
+  document.getElementById('execWrap').style.display = execCollapsed ? 'none' : '';
+  document.getElementById('toggleExec').innerHTML = execCollapsed
+    ? '<i class="fa-solid fa-plus"></i>'
+    : '<i class="fa-solid fa-minus"></i>';
+});
+
+document.addEventListener('click', async e => {
+  const btn = e.target.closest('.single-ppt');
+  if (!btn) return;
+  const rec = allSubmissions.find(r => r.id === btn.dataset.id);
+  if (!rec) { alert('Record not found'); return; }
+  await generateActivityPPT([rec], `${(rec.activityName||'activity').replace(/[^\w]/g,'_')}.pptx`);
+});
+
+load();
+
+/* ════════════════════════════════════════════════════════════
+   LOAD — fetches both submissions AND activitySchedules
+   so we can show real pending (scheduled but not done)
+════════════════════════════════════════════════════════════ */
+async function load() {
+  const dept   = document.getElementById('deptFilter').value;
+  const { start, end } = getActiveDateRange();
+  const startTs = firebase.firestore.Timestamp.fromDate(start);
+  const endTs   = firebase.firestore.Timestamp.fromDate(end);
+
+  /* Show loading state */
+  document.getElementById('execBody').innerHTML = '<tr><td colspan="8"><div class="loader"><div class="spinner"></div></div></td></tr>';
+  document.getElementById('supBody').innerHTML  = '<tr><td colspan="8"><div class="loader"><div class="spinner"></div></div></td></tr>';
+  ['kTotal','kDone','kPending','kPct','kWeek','kMonth'].forEach(id => setText(id,'…'));
+
+  try {
+    /* Fetch submissions (completed/attempted) and schedules (what is due) in parallel */
+    const [subSnap, schSnap] = await Promise.all([
+      db.collection('submissions')
+        .where('timestamp','>=', startTs)
+        .where('timestamp','<=', endTs)
+        .orderBy('timestamp','desc').get(),
+      db.collection('activitySchedules').get()
+    ]);
+
+    /* Filter out vendor submissions */
+    let subs = subSnap.docs.map(d => ({ id:d.id, ...d.data() }))
+      .filter(r => r.activityType !== 'vendor' && r.department !== 'Vendor');
+
+    /* Filter by dept */
+    if (dept !== 'All') subs = subs.filter(r => r.department === dept);
+
+    /* Filter schedules: internal only, dept match */
+    let scheds = schSnap.docs.map(d => ({ id:d.id, ...d.data() }))
+      .filter(s => s.activityType !== 'vendor');
+    if (dept !== 'All') scheds = scheds.filter(s => s.department === dept);
+
+    allSubmissions = subs;
+    allSchedules   = scheds;
+
+    renderAll(subs, scheds, { start, end });
+  } catch(e) {
+    console.error('Load error:', e);
+    document.getElementById('execBody').innerHTML =
+      `<tr><td colspan="8" style="color:var(--danger);text-align:center;padding:14px;">
+        Error loading data: ${esc(e.message)}
+       </td></tr>`;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   LOCAL DATE HELPER
+   Always use LOCAL calendar date (not UTC) so IST / any
+   timezone never shifts the date to the previous day.
+════════════════════════════════════════════════════════════ */
+function localDateStr(date) {
+  /* "YYYY-MM-DD" in LOCAL timezone — avoids UTC offset shifting date */
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PENDING SCHEDULE CALCULATION
+   ─────────────────────────────────────────────────────────
+   RULES:
+   1. A Weekly activity is "done for the week" if ANY submission
+      with matching activityName + department + photos exists
+      on the SAME calendar week AND is within the filter period.
+      (Supervisor may do Saturday's job on Sunday — still counts.)
+
+   2. A Daily activity is pending for each day it has no submission.
+
+   3. Monthly/One-off: pending if nextDate falls in the period
+      and no matching submission exists anywhere in the period.
+
+   4. All date comparisons use LOCAL date strings (YYYY-MM-DD)
+      to avoid UTC timezone shifting the date (critical for IST).
+════════════════════════════════════════════════════════════ */
+
+/* Build a Set of LOCAL date strings on which each activity was completed */
+function buildCompletedSet(submissions) {
+  /*
+   * Key format:  "dept__activityName__YYYY-MM-DD"
+   * Also store:  "dept__activityName__week__YYYY-Www" for Weekly dedup
+   */
+  const byDate = new Set();
+  const byWeek = new Set();
+
+  submissions.forEach(sub => {
+    if (!sub.photos?.length) return;
+    const dt = sub.timestamp?.toDate ? sub.timestamp.toDate()
+                                      : parseDate(sub.date || '');
+    if (!dt) return;
+
+    const dateStr = localDateStr(dt);
+    const base    = `${sub.department}__${sub.activityName}`;
+
+    byDate.add(`${base}__${dateStr}`);
+
+    /* ISO week key: YYYY-Www
+     * CRITICAL FIX: strip the time component from dt before computing the week.
+     * The cursor in getPendingSchedules is always at midnight (setHours 0,0,0,0).
+     * If we use the raw timestamp (e.g. 10 AM) the division (dt-jan1)/864e5 is
+     * NOT a whole number, so Math.ceil can push the week number ONE HIGHER than
+     * what isoWeekKey(cursor) returns — making every Saturday submission appear
+     * to belong to the NEXT week and therefore not matching the completed-set
+     * lookup, causing completed activities to incorrectly show as pending.
+     */
+    const dtMid   = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); // local midnight
+    const jan1    = new Date(dtMid.getFullYear(), 0, 1);
+    const weekNum = Math.ceil((((dtMid - jan1) / 864e5) + jan1.getDay() + 1) / 7);
+    byWeek.add(`${base}__${dtMid.getFullYear()}-W${String(weekNum).padStart(2,'0')}`);
+  });
+
+  return { byDate, byWeek };
+}
+
+/* ISO week string for a given date */
+function isoWeekKey(date) {
+  const jan1    = new Date(date.getFullYear(), 0, 1);
+  const weekNum = Math.ceil((((date - jan1) / 864e5) + jan1.getDay() + 1) / 7);
+  return `${date.getFullYear()}-W${String(weekNum).padStart(2,'0')}`;
+}
+
+function isScheduleDueOnDate(schedule, date) {
+  const dayName = DAY_NAMES[date.getDay()];
+  const freq    = (schedule.frequency || 'Weekly').trim();
+
+  if (freq === 'Daily')  return true;
+  if (freq === 'Weekly') return (schedule.recurringDays || []).includes(dayName);
+
+  /* Monthly / Bimonthly / One-off: use nextDate */
+  if (schedule.nextDate) {
+    /* Parse nextDate as LOCAL date to avoid timezone shift */
+    const parts = String(schedule.nextDate).split('-');
+    const nd    = parts.length === 3
+      ? new Date(+parts[0], +parts[1]-1, +parts[2])
+      : new Date(schedule.nextDate);
+    return nd.getFullYear() === date.getFullYear() &&
+           nd.getMonth()    === date.getMonth()    &&
+           nd.getDate()     === date.getDate();
+  }
+  return false;
+}
+
+function getPendingSchedules(schedules, submissions, { start, end }) {
+  /*
+   * Returns one pending entry per unfinished OCCURRENCE in the period.
+   *
+   * For WEEKLY activities:
+   *   One occurrence = one calendar week.
+   *   If completed on any day of that week (within the period) → NOT pending.
+   *   Only the FIRST due day of that week in the period is used as the pendingDate.
+   *
+   * For DAILY activities:
+   *   One occurrence per calendar day.
+   *   Completed if any submission with photos exists for that exact LOCAL date.
+   *
+   * For MONTHLY/ONE-OFF:
+   *   One occurrence at nextDate.
+   *   Completed if any submission with photos exists anywhere in the period.
+   */
+
+  const { byDate, byWeek } = buildCompletedSet(submissions);
+  const pending = [];
+  const seen    = new Set();
+
+  const cursor = new Date(start);
+  cursor.setHours(0, 0, 0, 0);
+
+  while (cursor <= end) {
+    const dayName  = DAY_NAMES[cursor.getDay()];
+    const dateStr  = localDateStr(cursor);          /* LOCAL date — no UTC shift */
+    const weekKey  = isoWeekKey(cursor);
+
+    for (const sch of schedules) {
+      if (!isScheduleDueOnDate(sch, cursor)) { continue; }
+
+      const base  = `${sch.department}__${sch.activityName}`;
+      const freq  = (sch.frequency || 'Weekly').trim();
+
+      /* Dedup key — weekly activities deduplicated per ISO week */
+      const dedupKey = freq === 'Weekly'
+        ? `${sch.id}__week__${weekKey}`
+        : `${sch.id}__${dateStr}`;
+
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
+      /* Check completion */
+      let isDone = false;
+      if (freq === 'Weekly') {
+        /* Done if completed on ANY day of this ISO week */
+        isDone = byWeek.has(`${base}__${weekKey}`);
+      } else if (freq === 'Daily') {
+        isDone = byDate.has(`${base}__${dateStr}`);
+      } else {
+        /* Monthly / one-off: done if any submission in period */
+        isDone = submissions.some(sub =>
+          sub.department   === sch.department &&
+          sub.activityName === sch.activityName &&
+          sub.photos?.length > 0
+        );
+      }
+
+      if (!isDone) {
+        pending.push({
+          id:           sch.id,
+          activityName: sch.activityName || '—',
+          department:   sch.department   || '—',
+          frequency:    freq,
+          pendingDate:  dateStr,          /* LOCAL date string */
+          pendingDay:   dayName,
+          isPending:    true
+        });
+      }
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  /* Sort: most recent pending date first */
+  return pending.sort((a, b) => b.pendingDate.localeCompare(a.pendingDate));
+}
+
+function getActiveDateRange() {
+  const period = document.getElementById('periodFilter').value;
+  const fromV  = document.getElementById('fromDate').value;
+  const toV    = document.getElementById('toDate').value;
+  if (fromV && toV) {
+    return { start: new Date(fromV+'T00:00:00'), end: new Date(toV+'T23:59:59') };
+  }
+  return getDateRange(period);
+}
+
+/* ════════════════════════════════════════════════════════════
+   RENDER ALL
+════════════════════════════════════════════════════════════ */
+function renderAll(subs, scheds, { start, end }) {
+  const completedSubs = subs.filter(r => r.photos?.length > 0);
+  const pendingScheds = getPendingSchedules(scheds, subs, { start, end });
+
+  const totalDone    = completedSubs.length;
+  const totalPending = pendingScheds.length;
+  const totalAll     = totalDone + totalPending;
+  const pct          = totalAll ? Math.round((totalDone / totalAll) * 100) : 0;
+
+  setText('kTotal',   totalAll);
+  setText('kDone',    totalDone);
+  setText('kPending', totalPending);
+  setText('kPct',     pct + '%');
+
+  /* Weekly / Monthly counts (completed only, relative to now) */
+  const now = new Date();
+  const wkS = new Date(now); wkS.setDate(now.getDate() - now.getDay()); wkS.setHours(0,0,0,0);
+  const moS = new Date(now.getFullYear(), now.getMonth(), 1);
+  setText('kWeek',  completedSubs.filter(r => {
+    const d = r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date);
+    return d && d >= wkS;
+  }).length);
+  setText('kMonth', completedSubs.filter(r => {
+    const d = r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date);
+    return d && d >= moS;
+  }).length);
+
+  /* ── Charts ── */
+
+  /* Trend (completed per day) */
+  const days   = getLastNDays(30);
+  const dMap   = {};
+  completedSubs.forEach(r => {
+    const d = r.timestamp?.toDate ? r.timestamp.toDate() : parseDate(r.date);
+    if (d) { const k = isoDate(d); dMap[k] = (dMap[k]||0) + 1; }
+  });
+  const ctx1 = document.getElementById('trendChart').getContext('2d');
+  if (trendC) trendC.destroy();
+  trendC = new Chart(ctx1, {
+    type:'line',
+    data:{ labels: days.map(d => d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})),
+           datasets:[{ label:'Completed', data: days.map(d => dMap[isoDate(d)]||0),
+             borderColor: KPI_COLORS.teal, backgroundColor:'rgba(13,148,136,.1)',
+             fill:true, tension:.35, pointRadius:2, borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ y:{ beginAtZero:true, ticks:{precision:0} } } }
+  });
+
+  /* Doughnut */
+  const ctx2 = document.getElementById('doughnutChart').getContext('2d');
+  if (dC) dC.destroy();
+  dC = new Chart(ctx2, {
+    type:'doughnut',
+    data:{ labels:['Completed','Pending'],
+           datasets:[{ data:[totalDone, totalPending],
+             backgroundColor:[KPI_COLORS.green, KPI_COLORS.red], borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'60%',
+      plugins:{ legend:{position:'bottom'},
+        tooltip:{ callbacks:{ label: c => `${c.label}: ${c.raw} (${totalAll ? Math.round((c.raw/totalAll)*100) : 0}%)` } } } }
+  });
+
+  /* Dept chart — combine completed + pending */
+  const dm = {};
+  completedSubs.forEach(r => {
+    const d = r.department||'Unknown';
+    if(!dm[d]) dm[d]={done:0,pend:0};
+    dm[d].done++;
+  });
+  pendingScheds.forEach(p => {
+    const d = p.department||'Unknown';
+    if(!dm[d]) dm[d]={done:0,pend:0};
+    dm[d].pend++;
+  });
+  const dL = Object.keys(dm);
+  const ctx3 = document.getElementById('deptChart').getContext('2d');
+  if (deptC) deptC.destroy();
+  deptC = new Chart(ctx3, {
+    type:'bar',
+    data:{ labels:dL,
+      datasets:[
+        { label:'Completed', data:dL.map(l=>dm[l].done), backgroundColor:KPI_COLORS.green, borderRadius:4 },
+        { label:'Pending',   data:dL.map(l=>dm[l].pend), backgroundColor:KPI_COLORS.red,   borderRadius:4 }
+      ] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{position:'bottom'} },
+      scales:{ x:{stacked:true}, y:{stacked:true, beginAtZero:true} } }
+  });
+
+  /* Supervisor chart (completed only) */
+  const sm = {};
+  completedSubs.forEach(r => {
+    const s = r.supervisor||'?';
+    sm[s] = (sm[s]||0) + 1;
+  });
+  const sArr = Object.entries(sm).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const ctx4 = document.getElementById('supChart').getContext('2d');
+  if (supC) supC.destroy();
+  supC = new Chart(ctx4, {
+    type:'bar',
+    data:{ labels: sArr.map(x=>x[0]),
+           datasets:[{ data:sArr.map(x=>x[1]), backgroundColor:KPI_COLORS.teal, borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ beginAtZero:true, ticks:{precision:0} } } }
+  });
+
+  /* Supervisor leaderboard — include pending in totals */
+  const supFull = {};
+  completedSubs.forEach(r => {
+    const s = r.supervisor||'?';
+    if(!supFull[s]) supFull[s]={tot:0,done:0,depts:new Set()};
+    supFull[s].tot++;
+    supFull[s].done++;
+    if(r.department) supFull[s].depts.add(r.department);
+  });
+  /* Add pending contributions per dept → mapped to "unassigned" since pending has no supervisor */
+  pendingScheds.forEach(p => {
+    const key = `Pending — ${p.department}`;
+    if(!supFull[key]) supFull[key]={tot:0,done:0,depts:new Set()};
+    supFull[key].tot++;
+    if(p.department) supFull[key].depts.add(p.department);
+  });
+
+  const supArr = Object.entries(supFull).sort((a,b)=>b[1].done-a[1].done);
+  const supB   = document.getElementById('supBody');
+  supB.innerHTML = '';
+  supArr.forEach(([name,u],i) => {
+    const p   = u.tot ? Math.round((u.done/u.tot)*100) : 0;
+    const cls = p>=80 ? 'row-ok' : p>=50 ? 'row-warn' : 'row-danger';
+    const bar = `<div class="prog-bar" style="width:80px;display:inline-block;">
+      <div class="prog-fill${p>=80?'':p>=50?' p-warn':' p-danger'}" style="width:${p}%"></div></div>`;
+    supB.insertAdjacentHTML('beforeend',
+      `<tr class="${cls}">
+        <td>${i+1}</td>
+        <td class="bold">${esc(name)}</td>
+        <td class="hide-mobile">${esc([...u.depts].join(', ')||'—')}</td>
+        <td>${u.tot}</td>
+        <td style="color:var(--ok);font-weight:700">${u.done}</td>
+        <td style="color:var(--danger);font-weight:700">${u.tot-u.done}</td>
+        <td><b>${p}%</b></td>
+        <td>${bar}</td>
+      </tr>`);
+  });
+  if(!supArr.length) supB.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:14px;color:var(--gray5)">No data</td></tr>';
+
+  /* Execution table — pass all data */
+  renderExecTable(completedSubs, allSchedules, pendingScheds);
+}
+
+/* ════════════════════════════════════════════════════════════
+   EXECUTION TABLE — shows COMPLETED rows then PENDING rows
+════════════════════════════════════════════════════════════ */
+function renderExecTable(completedSubs, schedules, pendingScheds) {
+  const q    = document.getElementById('tableSearch').value.toLowerCase();
+  const body = document.getElementById('execBody');
+  body.innerHTML = '';
+  let rowNum = 0;
+
+  /* ── Completed rows (from submissions) ── */
+  const showCompleted = q
+    ? completedSubs.filter(r =>
+        (r.activityName||r.supervisor||r.department||'').toLowerCase().includes(q))
+    : completedSubs;
+
+  showCompleted.forEach(r => {
+    rowNum++;
+    const pptBtn = r.photos?.length > 0
+      ? `<button class="btn btn-ppt btn-sm single-ppt" data-id="${esc(r.id)}" title="Download PPT">
+           <i class="fa-solid fa-file-powerpoint"></i>
+         </button>`
+      : `<span style="font-size:11px;color:var(--gray5);">—</span>`;
+
+    body.insertAdjacentHTML('beforeend',
+      `<tr class="row-ok">
+        <td>${rowNum}</td>
+        <td>${esc(r.date||'—')}</td>
+        <td class="bold">${esc(r.supervisor||'—')}</td>
+        <td class="hide-mobile">${esc(r.department||'—')}</td>
+        <td>${esc(r.activityName||'—')}</td>
+        <td>${esc(r.shift||'—')}</td>
+        <td><span class="badge b-ok"><i class="fa-solid fa-circle-check"></i> Completed</span></td>
+        <td>${pptBtn}</td>
+      </tr>`);
+  });
+
+  /* ── Pending rows (from schedules not completed) ── */
+  const showPending = q
+    ? pendingScheds.filter(p =>
+        (p.activityName||p.department||'').toLowerCase().includes(q))
+    : pendingScheds;
+
+  if (showPending.length > 0) {
+    /* Separator row */
+    if (rowNum > 0) {
+      body.insertAdjacentHTML('beforeend',
+        `<tr>
+          <td colspan="8" style="background:var(--danger-l);padding:7px 12px;
+            font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;
+            color:var(--danger);">
+            <i class="fa-solid fa-clock"></i> Pending Activities — Scheduled but not completed
+          </td>
+        </tr>`);
+    }
+
+    showPending.forEach(p => {
+      rowNum++;
+      body.insertAdjacentHTML('beforeend',
+        `<tr class="row-danger">
+          <td>${rowNum}</td>
+          <td>${esc(p.pendingDate)} <span style="font-size:10px;color:var(--gray5);">${esc(p.pendingDay)}</span></td>
+          <td style="color:var(--gray5);font-style:italic;">Not assigned</td>
+          <td class="hide-mobile">${esc(p.department)}</td>
+          <td>${esc(p.activityName)}</td>
+          <td><span class="badge b-gray">${esc(p.frequency)}</span></td>
+          <td><span class="badge b-danger"><i class="fa-solid fa-clock"></i> Pending</span></td>
+          <td><span style="font-size:11px;color:var(--gray5);">—</span></td>
+        </tr>`);
+    });
+  }
+
+  if (rowNum === 0) {
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--gray5);">
+      No activities found for the selected filters</td></tr>`;
+  }
+}
+
+/* ── Export helpers ── */
+async function exportPPT() {
+  const recs = allSubmissions.filter(r => r.photos?.length > 0);
+  if (!recs.length) { alert('No completed activities with photos to export'); return; }
+  await generateActivityPPT(recs, `Activity_KPI_${new Date().toISOString().slice(0,10)}.pptx`);
+}
+
+function exportExcel() {
+  const { start, end } = getActiveDateRange();
+  const pending = getPendingSchedules(allSchedules, allSubmissions, { start, end });
+  exportToExcel([
+    {
+      name: 'Completed',
+      data: allSubmissions.filter(r=>r.photos?.length>0).map(r => ({
+        Date:       r.date||'',
+        Department: r.department||'',
+        Activity:   r.activityName||'',
+        Supervisor: r.supervisor||'',
+        Shift:      r.shift||'',
+        Status:     'Completed',
+        Photos:     r.photos?.length||0,
+        Notes:      r.notes||''
+      }))
+    },
+    {
+      name: 'Pending',
+      data: pending.map(p => ({
+        Date:       p.pendingDate,
+        Day:        p.pendingDay,
+        Department: p.department,
+        Activity:   p.activityName,
+        Frequency:  p.frequency,
+        Status:     'Pending'
+      }))
+    }
+  ], `Activity_KPI_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+</script>
+</body>
+</html>
