@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Issue Log — Inventory Admin</title>
+<link rel="stylesheet" href="kpi-style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="inv-firebase.js"></script>
+<style>
+.inv-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.inv-g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.inv-g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;align-items:flex-end;}
+@media(max-width:700px){.inv-g2,.inv-g3,.inv-g4{grid-template-columns:1fr;}}
+@media(min-width:701px) and (max-width:960px){.inv-g3{grid-template-columns:1fr 1fr;}}
+.f{display:flex;flex-direction:column;gap:4px;}
+.f label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray5);}
+.f input,.f select,.f textarea{padding:9px 12px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:13px;color:var(--gray9);background:var(--white);transition:.18s;}
+.f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--t5);box-shadow:0 0 0 3px rgba(13,148,136,.12);}
+.f input[readonly]{background:var(--gray1);color:var(--gray5);}
+.fr{display:flex;gap:8px;align-items:flex-end;}.fr .f{flex:1;}
+.sbar-wrap{height:7px;background:var(--gray1);border-radius:99px;overflow:hidden;min-width:60px;margin-top:4px;}
+.sbar{height:100%;border-radius:99px;transition:width .5s;}
+.sbar-ok{background:linear-gradient(90deg,var(--t7),var(--t4));}
+.sbar-warn{background:linear-gradient(90deg,var(--warn),#fcd34d);}
+.sbar-crit{background:var(--danger);}
+.req-card{background:var(--white);border:1px solid var(--gray3);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;transition:.15s;animation:_fu .3s ease both;}
+.req-card:hover{border-color:var(--t4);box-shadow:var(--shadow);}
+.req-body{flex:1;min-width:0;}
+.req-name{font-size:13px;font-weight:700;color:var(--gray9);margin-bottom:4px;}
+.req-meta{font-size:11px;color:var(--gray5);display:flex;flex-wrap:wrap;gap:5px;align-items:center;line-height:1.6;}
+.alert-row2{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--danger-l);border:1px solid #fca5a5;margin-bottom:6px;animation:_fu .3s ease both;}
+.rcv-panel{display:none;background:var(--t0);border:1.5px solid var(--t1);border-radius:var(--r);padding:16px;margin-top:12px;}
+.rcv-panel.open{display:block;}
+.preview-box{background:var(--gray1);border:1.5px solid var(--gray3);border-radius:var(--r);padding:16px;}
+.info-tip{background:var(--t0);border:1px solid var(--t1);border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--t7);line-height:1.7;}
+.cancel-ov{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:700;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);}
+.cancel-ov.open{display:flex;}
+.cancel-box{background:var(--white);border-radius:14px;padding:24px;width:100%;max-width:430px;box-shadow:0 24px 60px rgba(15,23,42,.22);}
+.cancel-box h3{font-size:15px;font-weight:800;color:var(--danger);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.cancel-box textarea{width:100%;padding:9px 12px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:13px;resize:none;box-sizing:border-box;transition:.18s;margin-top:4px;}
+.cancel-box textarea:focus{outline:none;border-color:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.12);}
+.cerr{font-size:12px;color:var(--danger);min-height:16px;margin-top:4px;font-weight:600;}
+.cfooter{display:flex;gap:8px;margin-top:16px;}
+.cfooter .btn{flex:1;}
+tr.row-cancelled td{opacity:.5;text-decoration:line-through;background:#fef2f2!important;}
+tr.row-cancelled .no-strike{text-decoration:none!important;opacity:1;font-style:italic;}
+tr.i-ok  td:first-child{border-left:3px solid var(--ok);}
+tr.i-warn td:first-child{border-left:3px solid var(--warn);}
+tr.i-crit td:first-child{border-left:3px solid var(--danger);}
+@keyframes _fu{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.btn-ok{background:var(--ok);color:#fff;} .btn-ok:hover{background:#15803d;}
+.btn-danger{background:var(--danger);color:#fff;} .btn-danger:hover{background:#b91c1c;}
+.btn-warn{background:var(--warn);color:#fff;} .btn-warn:hover{background:#b45309;}
+@media(max-width:640px){.hide-mobile{display:none;}}</style>
+</head>
+<body>
+<header class="kpi-header">
+  <div class="brand">
+    <i class="fa-solid fa-boxes-stacked"></i>
+    Inventory Admin
+    <span class="tag">Management</span>
+  </div>
+  <nav style="display:flex;gap:4px;flex-wrap:wrap;" id="adminName">
+    <a href="inv-manage.html" class=""><i class="fa-solid fa-boxes-stacked"></i> Stock Overview</a>
+    <a href="inv-add.html" class=""><i class="fa-solid fa-plus-circle"></i> Add / Receive</a>
+    <a href="inv-requests.html" class=""><i class="fa-solid fa-file-circle-plus"></i> Requests <span id="reqNavBadge" class="badge b-warn" style="display:none;padding:2px 6px;font-size:10px;">!</span></a>
+    <a href="inv-categories.html" class=""><i class="fa-solid fa-tags"></i> Categories</a>
+    <a href="inv-suppliers.html" class=""><i class="fa-solid fa-truck"></i> Suppliers</a>
+    <a href="inv-issuelog.html" class="active"><i class="fa-solid fa-receipt"></i> Issue Log</a>
+    
+  </nav>
+</header>
+<div id="toast"></div>
+<main class="kpi-main">
+
+  <!-- Cancel Modal -->
+  <div class="cancel-ov" id="cancelOv">
+    <div class="cancel-box">
+      <h3><i class="fa-solid fa-triangle-exclamation"></i> Cancel Issue Entry?</h3>
+      <div id="cancelItemName" style="font-size:13px;font-weight:700;color:var(--gray9);margin-bottom:2px;"></div>
+      <div id="cancelItemMeta" style="font-size:12px;color:var(--gray5);margin-bottom:14px;"></div>
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray5);">
+        Reason for cancellation <span style="color:var(--danger)">*</span>
+      </label>
+      <textarea id="cancelReason" rows="3" placeholder="e.g. Wrong item selected, entered wrong quantity…"></textarea>
+      <div class="cerr" id="cancelErr"></div>
+      <div class="cfooter">
+        <button class="btn btn-outline" onclick="closeCancelModal()"><i class="fa-solid fa-xmark"></i> Keep Entry</button>
+        <button class="btn btn-danger" id="btnConfirmCancel" onclick="confirmCancel()">
+          <i class="fa-solid fa-ban"></i> Cancel &amp; Restore Stock
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="filters-bar">
+      <select id="issLogDept">
+        <option value="">All Departments</option>
+        <option value="HK">HK</option><option value="Pantry">Pantry</option>
+        <option value="ME">ME</option><option value="Security">Security</option><option value="EHS">EHS</option>
+      </select>
+      <select id="issLogRange">
+        <option value="today">Today</option>
+        <option value="week">Last 7 Days</option>
+        <option value="month" selected>Last 30 Days</option>
+        <option value="all">All Time</option>
+      </select>
+      <select id="issLogStatus">
+        <option value="active">Valid Issues Only</option>
+        <option value="all">All (incl. Cancelled)</option>
+        <option value="cancelled">Cancelled Only</option>
+      </select>
+      <button class="btn btn-primary btn-sm" id="btnIssLoad">
+        <i class="fa-solid fa-rotate-right"></i> Load
+      </button>
+      <span id="issLogMeta" style="font-size:12px;color:var(--gray5);margin-left:4px;"></span>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Date &amp; Time</th><th>Material</th>
+            <th class="hide-mobile">Category</th><th>Dept</th>
+            <th>Qty Issued</th><th>Supervisor</th>
+            <th class="hide-mobile">Shift</th><th>Status</th><th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="issLogBody">
+          <tr><td colspan="10"><div class="loader"><div class="spinner"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+<script>
+let _cDocId=null,_cMatId=null,_cQty=0;
+
+initAuth((user,name)=>{loadIssueLog();refreshReqBadge();});
+
+async function loadIssueLog(){
+  const body=document.getElementById('issLogBody'),metaEl=document.getElementById('issLogMeta');
+  const dept=document.getElementById('issLogDept').value;
+  const range=document.getElementById('issLogRange').value;
+  const status=document.getElementById('issLogStatus').value;
+  body.innerHTML='<tr><td colspan="10"><div class="loader"><div class="spinner"></div></div></td></tr>';
+  metaEl.textContent='';
+  let since=null;const now=new Date();
+  if(range==='today')since=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  else if(range==='week'){since=new Date(now);since.setDate(now.getDate()-7);since.setHours(0,0,0,0);}
+  else if(range==='month'){since=new Date(now);since.setDate(now.getDate()-30);since.setHours(0,0,0,0);}
+  try{
+    let q=db.collection('issuedItems').orderBy('timestamp','desc');
+    if(since)q=q.where('timestamp','>=',firebase.firestore.Timestamp.fromDate(since));
+    const snap=await q.get();
+    body.innerHTML='';
+    let rowNum=0,validCount=0,cancelCount=0;
+    snap.forEach(doc=>{
+      const d=doc.data(),sid=doc.id;
+      const isCancelled=d.status==='cancelled';
+      if(dept&&d.department!==dept)return;
+      if(status==='active'&&isCancelled)return;
+      if(status==='cancelled'&&!isCancelled)return;
+      if(isCancelled)cancelCount++;else validCount++;
+      rowNum++;
+      const dt=d.timestamp?.toDate?d.timestamp.toDate():null;
+      const qtyDisplay=d.issuedQtyDisplay||d.deductedDisplay||String(d.issuedQty||'—');
+      const statusBadge=isCancelled
+        ?'<span class="badge b-danger" style="text-decoration:none;">✕ Cancelled</span>'
+        :'<span class="badge b-ok">✓ Valid</span>';
+      const mn=esc((d.materialName||'').replace(/'/g,"&#39;"));
+      const qd=esc(qtyDisplay.replace(/'/g,"&#39;"));
+      const sv=esc((d.supervisor||'').replace(/'/g,"&#39;"));
+      const ds=dt?fmtDate(dt):'—';
+      const actionCell=isCancelled
+        ?`<div class="no-strike" style="font-size:11px;color:var(--gray5);line-height:1.5;">
+            By: <b>${esc(d.cancelledBy||'—')}</b><br>${esc(d.cancelReason||'')}
+          </div>`
+        :`<button class="btn btn-danger btn-sm" onclick="openCancelModal('${sid}','${esc(d.materialId||'')}',${d.deductedQtyInInvUnit||0},'${mn}','${qd}','${sv}','${ds}')">
+            <i class="fa-solid fa-ban"></i> Cancel
+          </button>`;
+      body.insertAdjacentHTML('beforeend',`
+        <tr class="${isCancelled?'row-cancelled':''}" style="animation:_fu .3s ease both;animation-delay:${rowNum*.02}s">
+          <td style="color:var(--gray5);font-size:12px;">${rowNum}</td>
+          <td style="font-size:12px;">${esc(ds)}<br><span style="color:var(--gray5);font-size:11px;">${dt?fmtTime(dt):''}</span></td>
+          <td class="bold">${esc(d.materialName||'—')}</td>
+          <td class="hide-mobile" style="font-size:12px;color:var(--gray5);">${esc(d.category||'—')}</td>
+          <td><span class="badge b-teal">${esc(d.department||'—')}</span></td>
+          <td style="font-weight:700;color:var(--danger);">−${esc(qtyDisplay)}</td>
+          <td>${esc(d.supervisor||'—')}</td>
+          <td class="hide-mobile">${d.shift?`<span class="badge b-gray">${esc(d.shift)}</span>`:'—'}</td>
+          <td>${statusBadge}</td>
+          <td>${actionCell}</td>
+        </tr>`);
+    });
+    if(!rowNum){
+      body.innerHTML='<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--gray5);"><i class="fa-solid fa-receipt" style="font-size:28px;opacity:.3;display:block;margin-bottom:8px;"></i>No entries found for selected filters</td></tr>';
+    }
+    metaEl.textContent=rowNum>0?`${validCount} valid · ${cancelCount} cancelled`:'';
+  }catch(e){
+    body.innerHTML=`<tr><td colspan="10" style="color:var(--danger);padding:16px;text-align:center;">Error: ${esc(e.message)}</td></tr>`;
+  }
+}
+
+function openCancelModal(docId,matId,qty,matName,qtyDisp,supervisor,dateStr){
+  _cDocId=docId;_cMatId=matId;_cQty=parseFloat(qty)||0;
+  document.getElementById('cancelItemName').textContent=matName||'Unknown material';
+  document.getElementById('cancelItemMeta').textContent=`Issued: ${qtyDisp} · By: ${supervisor} · ${dateStr}`;
+  document.getElementById('cancelReason').value='';
+  document.getElementById('cancelErr').textContent='';
+  document.getElementById('btnConfirmCancel').disabled=false;
+  document.getElementById('btnConfirmCancel').innerHTML='<i class="fa-solid fa-ban"></i> Cancel &amp; Restore Stock';
+  document.getElementById('cancelOv').classList.add('open');
+}
+function closeCancelModal(){
+  document.getElementById('cancelOv').classList.remove('open');
+  _cDocId=_cMatId=null;_cQty=0;
+}
+
+async function confirmCancel(){
+  const reason=document.getElementById('cancelReason').value.trim();
+  if(!reason){document.getElementById('cancelErr').textContent='Please enter a reason.';document.getElementById('cancelReason').focus();return;}
+  document.getElementById('cancelErr').textContent='';
+  const btn=document.getElementById('btnConfirmCancel');
+  btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Processing…';
+  const adminName=(document.getElementById('adminName')?.textContent||'').replace(/^.*👤\s*/,'').trim()||'Admin';
+  try{
+    await db.runTransaction(async tx=>{
+      const issRef=db.collection('issuedItems').doc(_cDocId);
+      const issDoc=await tx.get(issRef);
+      if(!issDoc.exists)throw new Error('Issue record not found.');
+      if(issDoc.data().status==='cancelled')throw new Error('Already cancelled.');
+      let invDoc=null;
+      if(_cMatId){const r=db.collection('inventory').doc(_cMatId);invDoc=await tx.get(r);}
+      tx.update(issRef,{status:'cancelled',cancelledAt:firebase.firestore.FieldValue.serverTimestamp(),cancelledBy:adminName,cancelReason:reason});
+      if(invDoc&&invDoc.exists&&_cQty>0){
+        const cur=invDoc.data().availableQty??invDoc.data().receivedQty??0;
+        tx.update(db.collection('inventory').doc(_cMatId),{availableQty:Math.round((cur+_cQty)*10000)/10000});
+      }
+    });
+    toast('Issue cancelled — stock restored');
+    closeCancelModal();loadIssueLog();
+  }catch(err){
+    console.error(err);
+    document.getElementById('cancelErr').textContent='Error: '+err.message;
+    btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-ban"></i> Cancel &amp; Restore Stock';
+  }
+}
+
+document.getElementById('cancelOv').addEventListener('click',function(e){if(e.target===this)closeCancelModal();});
+document.getElementById('btnIssLoad').addEventListener('click',loadIssueLog);
+document.getElementById('issLogDept').addEventListener('change',loadIssueLog);
+document.getElementById('issLogRange').addEventListener('change',loadIssueLog);
+document.getElementById('issLogStatus').addEventListener('change',loadIssueLog);
+</script>
+</body>
+</html>

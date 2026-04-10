@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Add / Receive — Inventory Admin</title>
+<link rel="stylesheet" href="kpi-style.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="inv-firebase.js"></script>
+<style>
+.inv-g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.inv-g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.inv-g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;align-items:flex-end;}
+@media(max-width:700px){.inv-g2,.inv-g3,.inv-g4{grid-template-columns:1fr;}}
+@media(min-width:701px) and (max-width:960px){.inv-g3{grid-template-columns:1fr 1fr;}}
+.f{display:flex;flex-direction:column;gap:4px;}
+.f label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--gray5);}
+.f input,.f select,.f textarea{padding:9px 12px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:13px;color:var(--gray9);background:var(--white);transition:.18s;}
+.f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--t5);box-shadow:0 0 0 3px rgba(13,148,136,.12);}
+.f input[readonly]{background:var(--gray1);color:var(--gray5);}
+.fr{display:flex;gap:8px;align-items:flex-end;}.fr .f{flex:1;}
+.sbar-wrap{height:7px;background:var(--gray1);border-radius:99px;overflow:hidden;min-width:60px;margin-top:4px;}
+.sbar{height:100%;border-radius:99px;transition:width .5s;}
+.sbar-ok{background:linear-gradient(90deg,var(--t7),var(--t4));}
+.sbar-warn{background:linear-gradient(90deg,var(--warn),#fcd34d);}
+.sbar-crit{background:var(--danger);}
+.req-card{background:var(--white);border:1px solid var(--gray3);border-radius:var(--r);padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:14px;transition:.15s;animation:_fu .3s ease both;}
+.req-card:hover{border-color:var(--t4);box-shadow:var(--shadow);}
+.req-body{flex:1;min-width:0;}
+.req-name{font-size:13px;font-weight:700;color:var(--gray9);margin-bottom:4px;}
+.req-meta{font-size:11px;color:var(--gray5);display:flex;flex-wrap:wrap;gap:5px;align-items:center;line-height:1.6;}
+.alert-row2{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--danger-l);border:1px solid #fca5a5;margin-bottom:6px;animation:_fu .3s ease both;}
+.rcv-panel{display:none;background:var(--t0);border:1.5px solid var(--t1);border-radius:var(--r);padding:16px;margin-top:12px;}
+.rcv-panel.open{display:block;}
+.preview-box{background:var(--gray1);border:1.5px solid var(--gray3);border-radius:var(--r);padding:16px;}
+.info-tip{background:var(--t0);border:1px solid var(--t1);border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--t7);line-height:1.7;}
+.cancel-ov{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:700;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);}
+.cancel-ov.open{display:flex;}
+.cancel-box{background:var(--white);border-radius:14px;padding:24px;width:100%;max-width:430px;box-shadow:0 24px 60px rgba(15,23,42,.22);}
+.cancel-box h3{font-size:15px;font-weight:800;color:var(--danger);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.cancel-box textarea{width:100%;padding:9px 12px;border:1.5px solid var(--gray3);border-radius:8px;font-family:var(--font);font-size:13px;resize:none;box-sizing:border-box;transition:.18s;margin-top:4px;}
+.cancel-box textarea:focus{outline:none;border-color:var(--danger);box-shadow:0 0 0 3px rgba(220,38,38,.12);}
+.cerr{font-size:12px;color:var(--danger);min-height:16px;margin-top:4px;font-weight:600;}
+.cfooter{display:flex;gap:8px;margin-top:16px;}
+.cfooter .btn{flex:1;}
+tr.row-cancelled td{opacity:.5;text-decoration:line-through;background:#fef2f2!important;}
+tr.row-cancelled .no-strike{text-decoration:none!important;opacity:1;font-style:italic;}
+tr.i-ok  td:first-child{border-left:3px solid var(--ok);}
+tr.i-warn td:first-child{border-left:3px solid var(--warn);}
+tr.i-crit td:first-child{border-left:3px solid var(--danger);}
+@keyframes _fu{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.btn-ok{background:var(--ok);color:#fff;} .btn-ok:hover{background:#15803d;}
+.btn-danger{background:var(--danger);color:#fff;} .btn-danger:hover{background:#b91c1c;}
+.btn-warn{background:var(--warn);color:#fff;} .btn-warn:hover{background:#b45309;}
+@media(max-width:640px){.hide-mobile{display:none;}}</style>
+</head>
+<body>
+<header class="kpi-header">
+  <div class="brand">
+    <i class="fa-solid fa-boxes-stacked"></i>
+    Inventory Admin
+    <span class="tag">Management</span>
+  </div>
+  <nav style="display:flex;gap:4px;flex-wrap:wrap;" id="adminName">
+    <a href="inv-manage.html" class=""><i class="fa-solid fa-boxes-stacked"></i> Stock Overview</a>
+    <a href="inv-add.html" class="active"><i class="fa-solid fa-plus-circle"></i> Add / Receive</a>
+    <a href="inv-requests.html" class=""><i class="fa-solid fa-file-circle-plus"></i> Requests <span id="reqNavBadge" class="badge b-warn" style="display:none;padding:2px 6px;font-size:10px;">!</span></a>
+    <a href="inv-categories.html" class=""><i class="fa-solid fa-tags"></i> Categories</a>
+    <a href="inv-suppliers.html" class=""><i class="fa-solid fa-truck"></i> Suppliers</a>
+    <a href="inv-issuelog.html" class=""><i class="fa-solid fa-receipt"></i> Issue Log</a>
+    
+  </nav>
+</header>
+<div id="toast"></div>
+<main class="kpi-main">
+
+  <div style="display:grid;grid-template-columns:1fr 290px;gap:18px;">
+    <div class="card">
+      <div class="card-title" id="formTitle"><i class="fa-solid fa-plus-circle"></i> Add / Receive Material</div>
+      <div class="inv-g2" style="margin-bottom:12px;">
+        <div class="f"><label>Department <span style="color:var(--danger)">*</span></label>
+          <select id="inpDept">
+            <option value="">Select Dept</option>
+            <option value="HK">Housekeeping (HK)</option><option value="Pantry">Pantry</option>
+            <option value="ME">Maintenance (ME)</option><option value="Security">Security</option><option value="EHS">EHS</option>
+          </select></div>
+        <div class="f"><label>Category <span style="color:var(--danger)">*</span></label>
+          <div class="fr"><div class="f"><select id="inpCat"><option value="">Select Dept first</option></select></div>
+          <a class="btn btn-outline btn-sm" href="inv-categories.html" title="Manage"><i class="fa-solid fa-tags"></i></a></div></div>
+      </div>
+      <div class="f" style="margin-bottom:12px;"><label>Material Name <span style="color:var(--danger)">*</span></label>
+        <input id="inpMat" placeholder="e.g. Taski R1 Floor Cleaner"/></div>
+      <div class="inv-g3" style="margin-bottom:12px;">
+        <div class="f"><label>Container Size <span style="color:var(--danger)">*</span></label>
+          <input id="inpSz" type="number" step="0.01" min="0" placeholder="e.g. 5"/></div>
+        <div class="f"><label>Unit <span style="color:var(--danger)">*</span></label>
+          <select id="inpUnit">
+            <optgroup label="Liquid"><option value="Litre">Litre</option><option value="ml">ml</option></optgroup>
+            <optgroup label="Weight"><option value="Kg">Kg</option><option value="g">g</option></optgroup>
+            <optgroup label="Count"><option value="Nos">Nos</option><option value="Pcs">Pcs</option><option value="Pair">Pair</option><option value="Box">Box</option><option value="Pack">Pack</option><option value="Roll">Roll</option><option value="Bag">Bag</option><option value="Pouch">Pouch</option><option value="Tablet">Tablet</option><option value="Strip">Strip</option></optgroup>
+          </select></div>
+        <div class="f"><label>No. of Containers <span style="color:var(--danger)">*</span></label>
+          <input id="inpCnt" type="number" step="0.01" min="0" value="1"/></div>
+      </div>
+      <div class="inv-g3" style="margin-bottom:12px;">
+        <div class="f"><label>MRP per Container (₹)</label><input id="inpMrp" type="number" step="0.01" placeholder="0.00"/></div>
+        <div class="f"><label>Low Stock Threshold <span id="thUnit" style="text-transform:none;letter-spacing:0;font-weight:600;"></span></label>
+          <input id="inpThr" type="number" step="0.01" min="0" placeholder="0"/></div>
+        <div class="f"><label>Received Date</label><input id="inpDate" type="date"/></div>
+      </div>
+      <div class="inv-g2" style="margin-bottom:18px;">
+        <div class="f"><label>Supplier</label>
+          <div class="fr"><div class="f"><select id="inpSup"><option value="">Select Supplier</option></select></div>
+          <a class="btn btn-outline btn-sm" href="inv-suppliers.html"><i class="fa-solid fa-truck"></i></a></div></div>
+        <div class="f"><label>Remarks</label><input id="inpRmk" placeholder="Optional notes"/></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="btnSave"><i class="fa-solid fa-floppy-disk"></i> Save / Receive</button>
+        <button class="btn btn-outline" id="btnClear"><i class="fa-solid fa-eraser"></i> Clear</button>
+        <a class="btn btn-outline" href="inv-manage.html"><i class="fa-solid fa-arrow-left"></i> Back</a>
+        <span id="lastAct" style="font-size:12px;color:var(--gray5);"></span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;position:sticky;top:74px;">
+      <div class="preview-box">
+        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--gray5);margin-bottom:10px;">Live Preview</div>
+        <div style="margin-bottom:8px;"><div style="font-size:11px;color:var(--gray5);">Total Quantity</div>
+          <div id="prevQty" style="font-size:18px;font-weight:800;color:var(--t7);margin-top:2px;">—</div></div>
+        <div><div style="font-size:11px;color:var(--gray5);">Inventory Value</div>
+          <div id="prevVal" style="font-size:18px;font-weight:800;color:var(--blue);margin-top:2px;">—</div></div>
+      </div>
+      <div class="info-tip">
+        <div style="font-weight:800;margin-bottom:6px;"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>How it works</div>
+        Same name + dept + category → stock is <b>added</b> to existing item.<br>
+        New combination → creates a <b>new item</b>.<br><br>
+        Liquids stored in <b>ml</b> · Weight in <b>g</b>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+let curEditId=null;
+initAuth(async(user,name)=>{
+  document.getElementById('inpDate').value=localDate();
+  await loadCategoryOptions('inpCat','');
+  await loadSupplierOptions('inpSup');
+  refreshReqBadge();
+  const p=new URLSearchParams(location.search),eid=p.get('edit');
+  if(eid)openEdit(eid);
+});
+function recalc(){
+  const sz=parseFloat(document.getElementById('inpSz').value)||0,unit=document.getElementById('inpUnit').value;
+  const cnt=parseFloat(document.getElementById('inpCnt').value)||0,mrp=parseFloat(document.getElementById('inpMrp').value)||0;
+  const base=toBaseQty(sz,unit)*cnt;
+  document.getElementById('prevQty').textContent=base>0?baseToHuman(base,unit):'—';
+  document.getElementById('prevVal').textContent=mrp>0?fmtCurrency(mrp*cnt):'—';
+  document.getElementById('thUnit').textContent=unit?`(${unit})`:'';
+}
+['inpSz','inpCnt','inpMrp'].forEach(id=>document.getElementById(id).addEventListener('input',recalc));
+document.getElementById('inpUnit').addEventListener('change',recalc);
+document.getElementById('inpDept').addEventListener('change',()=>loadCategoryOptions('inpCat',document.getElementById('inpDept').value));
+
+async function getSupName(id){if(!id)return'';try{const d=await db.collection('suppliers').doc(id).get();return d.exists?d.data().supplierName:'';}catch{return'';}}
+
+async function saveMat(){
+  const dept=document.getElementById('inpDept').value,cat=document.getElementById('inpCat').value,mat=document.getElementById('inpMat').value.trim();
+  const sz=parseFloat(document.getElementById('inpSz').value)||0,unit=document.getElementById('inpUnit').value;
+  const cnt=parseFloat(document.getElementById('inpCnt').value)||0,mrp=parseFloat(document.getElementById('inpMrp').value)||0;
+  const thr=parseFloat(document.getElementById('inpThr').value)||0,supId=document.getElementById('inpSup').value;
+  const rmk=document.getElementById('inpRmk').value.trim(),date=document.getElementById('inpDate').value||localDate();
+  if(!dept||!cat||!mat||!sz||!cnt){toast('Fill all required fields','err');return;}
+  const perBase=toBaseQty(sz,unit),addBase=Math.round(perBase*cnt*10000)/10000;
+  const btn=document.getElementById('btnSave');btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+  try{
+    if(curEditId){
+      await db.collection('inventory').doc(curEditId).update({department:dept,category:cat,materialName:mat,containerSize:sz,containerUnit:unit,containerCount:cnt,mrp,threshold:thr,inventoryValue:Math.round(mrp*cnt*100)/100,supplierId:supId,supplierName:await getSupName(supId),remarks:rmk,receivedDate:date,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      toast('Item updated');clearForm();return;
+    }
+    const q=await db.collection('inventory').where('materialName','==',mat).where('department','==',dept).where('category','==',cat).limit(1).get();
+    if(!q.empty){
+      const ex=q.docs[0],cur=ex.data();
+      const newAvl=Math.round(((cur.availableQty??cur.receivedQty??0)+addBase)*10000)/10000;
+      const newRcv=Math.round(((cur.receivedQty??0)+addBase)*10000)/10000;
+      await db.collection('inventory').doc(ex.id).update({receivedQty:newRcv,availableQty:newAvl,totalQty:newRcv,mrp:mrp||cur.mrp||0,threshold:thr||cur.threshold||0,inventoryValue:Math.round((newRcv/perBase)*(mrp||cur.mrp||0)*100)/100,supplierId:supId||cur.supplierId||'',supplierName:supId?await getSupName(supId):(cur.supplierName||''),remarks:rmk||cur.remarks||'',lastReceivedDate:date,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      toast(`+${baseToHuman(addBase,unit)} added to ${mat}`);document.getElementById('lastAct').textContent=`Updated: +${baseToHuman(addBase,unit)}`;
+    }else{
+      await db.collection('inventory').add({materialName:mat,category:cat,department:dept,containerSize:sz,containerUnit:unit,containerCount:cnt,receivedQty:addBase,availableQty:addBase,totalQty:addBase,mrp,threshold:thr,inventoryValue:Math.round(mrp*cnt*100)/100,supplierId:supId,supplierName:await getSupName(supId),remarks:rmk,receivedDate:date,lastReceivedDate:date,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+      toast(`${mat} added to inventory`);document.getElementById('lastAct').textContent=`Added: ${mat}`;
+    }
+    clearForm();
+  }catch(e){console.error(e);toast('Save failed: '+e.message,'err');}
+  finally{btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> '+(curEditId?'Update Item':'Save / Receive');}
+}
+function clearForm(){
+  ['inpDept','inpMat','inpSz','inpMrp','inpThr','inpSup','inpRmk'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('inpUnit').value='Litre';document.getElementById('inpCnt').value='1';
+  document.getElementById('inpCat').innerHTML='<option value="">Select Dept first</option>';
+  document.getElementById('inpDate').value=localDate();
+  document.getElementById('prevQty').textContent='—';document.getElementById('prevVal').textContent='—';
+  document.getElementById('thUnit').textContent='';
+  document.getElementById('btnSave').innerHTML='<i class="fa-solid fa-floppy-disk"></i> Save / Receive';
+  document.getElementById('formTitle').innerHTML='<i class="fa-solid fa-plus-circle"></i> Add / Receive Material';
+  curEditId=null;history.replaceState({},'',location.pathname);
+}
+async function openEdit(id){
+  try{
+    const doc=await db.collection('inventory').doc(id).get();if(!doc.exists){toast('Item not found','err');return;}
+    const d=doc.data();
+    document.getElementById('inpDept').value=d.department||'';
+    await loadCategoryOptions('inpCat',d.department||'');
+    document.getElementById('inpCat').value=d.category||'';
+    document.getElementById('inpMat').value=d.materialName||'';
+    document.getElementById('inpSz').value=d.containerSize||'';
+    document.getElementById('inpUnit').value=d.containerUnit||'Litre';
+    document.getElementById('inpCnt').value=d.containerCount||1;
+    document.getElementById('inpMrp').value=d.mrp||'';
+    document.getElementById('inpThr').value=d.threshold||'';
+    document.getElementById('inpSup').value=d.supplierId||'';
+    document.getElementById('inpRmk').value=d.remarks||'';
+    document.getElementById('inpDate').value=d.receivedDate||localDate();
+    curEditId=id;recalc();
+    document.getElementById('btnSave').innerHTML='<i class="fa-solid fa-pen"></i> Update Item';
+    document.getElementById('formTitle').innerHTML='<i class="fa-solid fa-pen"></i> Edit: '+esc(d.materialName);
+  }catch(e){console.error(e);toast('Failed to load item','err');}
+}
+document.getElementById('btnSave').addEventListener('click',saveMat);
+document.getElementById('btnClear').addEventListener('click',clearForm);
+</script>
+</body>
+</html>
