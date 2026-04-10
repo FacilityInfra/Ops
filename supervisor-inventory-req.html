@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Material Requests</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<link rel="stylesheet" href="design-system.css"/>
+<style>
+  .page-content.with-subnav { padding-top: 110px !important; }
+
+  .req-card {
+    background: var(--white); border-radius: var(--r-md); padding: 12px 14px;
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--gray-100); box-shadow: var(--shadow-sm);
+    animation: fadeRow .3s ease both;
+  }
+  @keyframes fadeRow { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .req-card .req-icon {
+    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+    background: var(--teal-100); color: var(--teal-700);
+  }
+  .req-card .req-body { flex: 1; min-width: 0; }
+  .req-card .req-name { font-size: 13px; font-weight: 700; color: var(--gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .req-card .req-meta { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+  .req-card .req-status { flex-shrink: 0; }
+
+  .stock-hint {
+    display: none; margin-top: 6px; padding: 8px 10px;
+    background: var(--teal-50); border: 1px solid var(--teal-100);
+    border-radius: var(--r-md); font-size: 12px; color: var(--teal-800);
+  }
+  .stock-hint.low  { background: var(--warning-bg); border-color: #fde68a; color: #92400e; }
+  .stock-hint.crit { background: var(--danger-bg);  border-color: #fca5a5; color: #7f1d1d; }
+
+  /* FIX 4: Summary card click highlight */
+  .stat-card {
+    border-radius: var(--r-md); padding: 10px; text-align: center;
+    cursor: pointer; transition: all .18s; border: 2px solid transparent;
+    user-select: none;
+  }
+  .stat-card:hover { transform: translateY(-2px); }
+  .stat-card.active-filter { border-color: currentColor; box-shadow: 0 0 0 3px rgba(0,0,0,.08); }
+  .stat-card-pending  { background: var(--warning-bg); }
+  .stat-card-approved { background: var(--success-bg); }
+  .stat-card-rejected { background: var(--danger-bg); }
+  .stat-val { font-size: 1.3rem; font-weight: 800; }
+  .stat-card-pending  .stat-val { color: var(--warning); }
+  .stat-card-approved .stat-val { color: var(--success); }
+  .stat-card-rejected .stat-val { color: var(--danger); }
+  .stat-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
+  .stat-card-pending  .stat-lbl { color: var(--warning); }
+  .stat-card-approved .stat-lbl { color: var(--success); }
+  .stat-card-rejected .stat-lbl { color: var(--danger); }
+
+  /* Filter pill shown when a status is active */
+  .filter-pill {
+    display: none; align-items: center; gap: 6px; padding: 6px 12px;
+    background: var(--teal-100); border-radius: 99px;
+    font-size: 12px; font-weight: 700; color: var(--teal-700);
+    margin-bottom: 10px;
+  }
+  .filter-pill.show { display: flex; }
+  .filter-pill button {
+    background: none; border: none; color: var(--teal-700);
+    cursor: pointer; font-size: 13px; padding: 0 0 0 4px; line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-icon"><i class="fa-solid fa-file-circle-plus" style="font-size:13px"></i></div>
+    Material Requests
+  </div>
+  <div class="header-right">
+    <div class="user-pill">
+      <div class="avatar"><i class="fa-solid fa-user" style="font-size:10px"></i></div>
+      <span id="userName">…</span>
+    </div>
+  </div>
+</header>
+
+<nav id="autoNav" class="auto-navbar">
+  <button class="nav-item" onclick="location.href='supervisor-inventory-issue.html'">
+    <i class="fa-solid fa-boxes-stacked"></i>Issue
+  </button>
+  <button class="nav-item active" onclick="location.href='supervisor-inventory-req.html'">
+    <i class="fa-solid fa-file-circle-plus"></i>Request
+  </button>
+  <button class="nav-item" onclick="location.href='supervisor-inventory-usage.html'">
+    <i class="fa-solid fa-chart-bar"></i>Logs
+  </button>
+</nav>
+
+<div id="toast"></div>
+
+<main class="page-content with-subnav">
+
+  <!-- RAISE REQUIREMENT FORM -->
+  <section class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-file-circle-plus"></i> Raise Requirement</div>
+      <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" id="clearReq">
+        <i class="fa-solid fa-eraser"></i> Clear
+      </button>
+    </div>
+
+    <div class="field-grid cols-3">
+      <div class="field">
+        <label>Department</label>
+        <select id="reqDept">
+          <option value="">Select Department</option>
+          <option value="HK">Housekeeping</option>
+          <option value="Pantry">Pantry</option>
+          <option value="ME">Maintenance</option>
+          <option value="Security">Security</option>
+          <option value="EHS">EHS</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Category</label>
+        <select id="reqCategory"><option value="">Select Dept first</option></select>
+      </div>
+
+      <div class="field">
+        <label>Material</label>
+        <select id="reqMaterial"><option value="">Select Category first</option></select>
+        <div class="stock-hint" id="stockHint"></div>
+      </div>
+
+      <!-- FIX 2: Unit BEFORE Quantity -->
+      <div class="field">
+        <label>Unit</label>
+        <select id="reqUnit"><option value="">Select material first</option></select>
+      </div>
+
+      <div class="field">
+        <label>Quantity</label>
+        <input id="reqQty" type="number" min="0.01" step="0.01" placeholder="0.00"/>
+      </div>
+
+      <div class="field">
+        <label>Month (For)</label>
+        <input id="reqMonth" type="month"/>
+      </div>
+
+      <div class="field full">
+        <label>Remarks / Purpose <span style="font-weight:400;text-transform:none;letter-spacing:0">(Optional)</span></label>
+        <textarea id="reqRemarks" rows="2" placeholder="Why is this material needed?"></textarea>
+      </div>
+    </div>
+
+    <div id="reqMsg" style="min-height:18px;margin-top:8px;font-size:13px;font-weight:600;text-align:center;"></div>
+
+    <button class="btn btn-submit" id="btnSubmitReq" style="margin-top:14px;">
+      <i class="fa-solid fa-paper-plane"></i> Submit Requirement
+    </button>
+  </section>
+
+  <!-- SUBMITTED REQUESTS -->
+  <section class="card" id="reqSection">
+    <div class="card-header">
+      <div class="card-title"><i class="fa-solid fa-list-check"></i> Submitted Requests</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input id="monthFilter" type="month"
+          style="padding:6px 10px;border:1.5px solid var(--gray-300);border-radius:var(--r-md);
+                 font-family:var(--font);font-size:13px;background:var(--white);"/>
+        <button class="icon-btn" id="reloadReq" style="background:var(--gray-100);color:var(--gray-700);">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- FIX 4: Clickable summary stat cards -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+      <div class="stat-card stat-card-pending" id="cardPending" onclick="filterByStatus('Pending')">
+        <div class="stat-val" id="countPending">0</div>
+        <div class="stat-lbl">⏳ Pending</div>
+      </div>
+      <div class="stat-card stat-card-approved" id="cardApproved" onclick="filterByStatus('Approved')">
+        <div class="stat-val" id="countApproved">0</div>
+        <div class="stat-lbl">✓ Approved</div>
+      </div>
+      <div class="stat-card stat-card-rejected" id="cardRejected" onclick="filterByStatus('Rejected')">
+        <div class="stat-val" id="countRejected">0</div>
+        <div class="stat-lbl">✕ Rejected</div>
+      </div>
+    </div>
+
+    <!-- Active filter pill with clear button -->
+    <div class="filter-pill" id="filterPill">
+      <i class="fa-solid fa-filter" style="font-size:11px;"></i>
+      Showing: <span id="filterPillLabel">—</span>
+      <button onclick="clearStatusFilter()" title="Show all">✕</button>
+    </div>
+
+    <div id="reqList" style="display:flex;flex-direction:column;gap:8px;">
+      <div style="text-align:center;padding:14px;"><div class="loader"></div></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="bottom-nav" id="bottomNav">
+  <button onclick="location.href='Home.html'"><i class="fa-solid fa-house"></i><span>Home</span></button>
+  <button onclick="location.href='supervisor-dashboard.html'"><i class="fa-solid fa-list-check"></i><span>Activity</span></button>
+  <button class="active"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/supervisor-common.js"></script>
+<script>
+const db   = window.db;
+const auth = window.auth;
+let inventoryCache = {};
+let currentSupervisor = 'Supervisor';
+let currentDept = '';
+let allRequestsDocs = [];   /* full list — used for client-side status filter */
+let activeStatusFilter = ''; /* '' = show all */
+
+/* FIX 3: Unit families — same as supervisor-inventory-issue.html */
+const UNIT_FAMILIES = {
+  liquid: ['Litre', 'ml'],
+  weight: ['Kg', 'g'],
+  count:  ['Nos', 'Pcs', 'Pair', 'Box', 'Pack', 'Roll', 'Bag', 'Pouch', 'Tablet', 'Strip']
+};
+function getUnitFamily(unit) {
+  if (!unit) return 'count';
+  const u = unit.toLowerCase();
+  if (u === 'litre' || u === 'l' || u === 'ml') return 'liquid';
+  if (u === 'kg' || u === 'g') return 'weight';
+  return 'count';
+}
+
+/* Default month */
+const thisMonth = new Date().toISOString().slice(0, 7);
+qs('#reqMonth').value    = thisMonth;
+qs('#monthFilter').value = thisMonth;
+
+/* Auth guard */
+auth.onAuthStateChanged(user => {
+  if (!user) { location.href = 'index.html'; return; }
+  currentSupervisor = localStorage.getItem('supervisorName') || user.email.split('@')[0];
+  document.getElementById('userName').textContent = currentSupervisor;
+
+  const deptMap = {'me@jll.com':'ME','hk@jll.com':'HK','security@jll.com':'Security','ehs@jll.com':'EHS','pantry@jll.com':'Pantry'};
+  currentDept = deptMap[user.email] || '';
+  if (currentDept) { qs('#reqDept').value = currentDept; loadCategories(); }
+
+  /* Check for pre-fill params from usage page (goToRequest) */
+  const params = new URLSearchParams(location.search);
+  const pDept  = params.get('dept');
+  const pCat   = params.get('category');
+  const pMat   = params.get('material');
+  if (pDept) {
+    qs('#reqDept').value = pDept;
+    loadCategories().then(async () => {
+      if (pCat) {
+        qs('#reqCategory').value = pCat;
+        await loadMaterials();
+        if (pMat) {
+          /* Find the option whose text matches the material name */
+          const opts = qs('#reqMaterial').options;
+          for (let i = 0; i < opts.length; i++) {
+            if (opts[i].text === pMat) { qs('#reqMaterial').value = opts[i].value; break; }
+          }
+          populateUnits();
+        }
+      }
+    });
+  }
+
+  loadAllRequests();
+});
+
+const reqDept     = qs('#reqDept');
+const reqCategory = qs('#reqCategory');
+const reqMaterial = qs('#reqMaterial');
+const reqQty      = qs('#reqQty');
+const reqUnit     = qs('#reqUnit');
+const reqMonth    = qs('#reqMonth');
+const reqRemarks  = qs('#reqRemarks');
+const reqMsg      = qs('#reqMsg');
+const stockHint   = qs('#stockHint');
+
+function setMsg(msg, ok = false) {
+  reqMsg.textContent = msg;
+  reqMsg.style.color = ok ? 'var(--success)' : 'var(--danger)';
+}
+
+/* Load Categories */
+async function loadCategories() {
+  reqCategory.innerHTML = '<option value="">Loading…</option>';
+  reqMaterial.innerHTML = '<option value="">Select Category first</option>';
+  reqUnit.innerHTML     = '<option value="">Select material first</option>';
+  stockHint.style.display = 'none';
+  try {
+    const snap = await db.collection('categories').where('department','==',reqDept.value).get();
+    reqCategory.innerHTML = '<option value="">Select Category</option>';
+    if (snap.empty) { reqCategory.innerHTML = '<option value="">No categories found</option>'; return; }
+    snap.forEach(doc => {
+      const d = doc.data();
+      reqCategory.innerHTML += `<option value="${escapeHtml(d.categoryName)}">${escapeHtml(d.categoryName)}</option>`;
+    });
+  } catch(e) {
+    console.error('loadCategories:', e);
+    reqCategory.innerHTML = '<option value="">Error loading</option>';
+    toast('Failed to load categories', 'error');
+  }
+}
+
+/* Load Materials */
+async function loadMaterials() {
+  reqMaterial.innerHTML = '<option value="">Loading…</option>';
+  reqUnit.innerHTML     = '<option value="">Select material first</option>';
+  stockHint.style.display = 'none';
+  inventoryCache = {};
+  try {
+    const snap = await db.collection('inventory')
+      .where('department','==', reqDept.value)
+      .where('category',  '==', reqCategory.value).get();
+    reqMaterial.innerHTML = '<option value="">Select Material</option>';
+    if (snap.empty) { reqMaterial.innerHTML = '<option value="">No materials found</option>'; return; }
+    snap.forEach(doc => {
+      inventoryCache[doc.id] = doc.data();
+      reqMaterial.innerHTML += `<option value="${doc.id}">${escapeHtml(doc.data().materialName)}</option>`;
+    });
+  } catch(e) {
+    console.error('loadMaterials:', e);
+    reqMaterial.innerHTML = '<option value="">Error loading</option>';
+    toast('Failed to load materials', 'error');
+  }
+}
+
+/* FIX 3: Populate Units based on material's container unit family */
+function populateUnits() {
+  reqUnit.innerHTML = '<option value="">Select Unit</option>';
+  stockHint.style.display = 'none';
+  const item = inventoryCache[reqMaterial.value];
+  if (!item) return;
+
+  const family = getUnitFamily(item.containerUnit || '');
+  const units  = UNIT_FAMILIES[family] || UNIT_FAMILIES.count;
+
+  units.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u;
+    opt.textContent = u;
+    /* Pre-select the material's own container unit */
+    if (u === item.containerUnit) opt.selected = true;
+    reqUnit.appendChild(opt);
+  });
+
+  /* Stock hint */
+  const avail = item.availableQty ?? item.receivedQty ?? 0;
+  const total = item.totalQty    ?? item.receivedQty ?? avail;
+  const pct   = total > 0 ? Math.round((avail / total) * 100) : 0;
+  stockHint.style.display = '';
+  if (pct > 40) {
+    stockHint.className = 'stock-hint';
+    stockHint.innerHTML = `✅ Current stock: <b>${formatReadable(avail, item.containerUnit)}</b> — Good level`;
+  } else if (pct > 15) {
+    stockHint.className = 'stock-hint low';
+    stockHint.innerHTML = `⚠️ Low stock: <b>${formatReadable(avail, item.containerUnit)}</b> remaining (${pct}%)`;
+  } else {
+    stockHint.className = 'stock-hint crit';
+    stockHint.innerHTML = `🔴 Critical: only <b>${formatReadable(avail, item.containerUnit)}</b> left — request urgent`;
+  }
+}
+
+/* Submit Request */
+qs('#btnSubmitReq').addEventListener('click', async () => {
+  setMsg('');
+  const dept    = reqDept.value;
+  const cat     = reqCategory.value;
+  const mid     = reqMaterial.value;
+  const unit    = reqUnit.value;
+  const qty     = reqQty.value;
+  const month   = reqMonth.value;
+  const remarks = reqRemarks.value.trim();
+
+  if (!dept || !cat || !mid || !unit || !qty || !month) {
+    setMsg('Please fill all required fields'); return;
+  }
+
+  const item = inventoryCache[mid];
+  if (!item) { setMsg('Material not found — please reload'); return; }
+
+  const btn = qs('#btnSubmitReq');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting…';
+
+  try {
+    await db.collection('materialRequests').add({
+      materialId:    mid,
+      materialName:  item.materialName,
+      department:    dept,
+      category:      cat,
+      requestedQty:  parseFloat(qty),
+      requestedUnit: unit,
+      monthFor:      month,
+      remarks,
+      status:        'Pending',
+      requestedBy:   currentSupervisor,
+      createdAt:     firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    toast('✅ Requirement submitted successfully');
+    setMsg('Submitted successfully!', true);
+
+    reqDept.value    = currentDept || '';
+    reqCategory.innerHTML = '<option value="">Select Dept first</option>';
+    reqMaterial.innerHTML = '<option value="">Select Category first</option>';
+    reqUnit.innerHTML     = '<option value="">Select material first</option>';
+    reqQty.value     = '';
+    reqRemarks.value = '';
+    stockHint.style.display = 'none';
+    inventoryCache = {};
+    if (currentDept) loadCategories();
+
+    activeStatusFilter = '';
+    loadAllRequests();
+  } catch(err) {
+    console.error(err);
+    setMsg(err.message || 'Submission failed');
+    toast('Submit failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Requirement';
+  }
+});
+
+/* FIX 1: Load All Requests — no Firestore orderBy (avoids composite index requirement) */
+async function loadAllRequests() {
+  const el    = qs('#reqList');
+  const month = qs('#monthFilter').value;
+
+  el.innerHTML = '<div style="text-align:center;padding:14px;"><div class="loader"></div></div>';
+  qs('#countPending').textContent  = '0';
+  qs('#countApproved').textContent = '0';
+  qs('#countRejected').textContent = '0';
+
+  try {
+    /* FIX 1: query by monthFor only — no orderBy — sort client-side */
+    const snap = await db.collection('materialRequests')
+      .where('monthFor', '==', month).get();
+
+    if (snap.empty) {
+      allRequestsDocs = [];
+      el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--gray-500);font-size:13px;">
+        <i class="fa-solid fa-file-circle-xmark" style="font-size:24px;opacity:.3;display:block;margin-bottom:8px;"></i>
+        No requests for ${month}
+      </div>`;
+      return;
+    }
+
+    /* Batch stock lookup */
+    const mids = [...new Set(snap.docs.map(d => d.data().materialId).filter(Boolean))];
+    const stockMap = {};
+    if (mids.length) {
+      const chunks = [];
+      for (let i = 0; i < mids.length; i += 10) chunks.push(mids.slice(i, i + 10));
+      for (const chunk of chunks) {
+        const invSnap = await db.collection('inventory')
+          .where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+        invSnap.forEach(d => { stockMap[d.id] = d.data(); });
+      }
+    }
+
+    /* Sort client-side: newest first */
+    allRequestsDocs = snap.docs.map(d => ({ id:d.id, ...d.data() }))
+      .sort((a, b) => {
+        const ta = a.createdAt?.seconds || 0;
+        const tb = b.createdAt?.seconds || 0;
+        return tb - ta;
+      });
+
+    /* Count by status */
+    let pending=0, approved=0, rejected=0;
+    allRequestsDocs.forEach(d => {
+      if (d.status==='Pending')  pending++;
+      if (d.status==='Approved') approved++;
+      if (d.status==='Rejected') rejected++;
+    });
+    qs('#countPending').textContent  = pending;
+    qs('#countApproved').textContent = approved;
+    qs('#countRejected').textContent = rejected;
+
+    renderRequestList(allRequestsDocs, stockMap);
+
+  } catch(e) {
+    console.error('loadAllRequests:', e);
+    el.innerHTML = `<div style="color:var(--danger);text-align:center;padding:14px;font-size:13px;">
+      <i class="fa-solid fa-circle-exclamation" style="display:block;font-size:20px;margin-bottom:6px;"></i>
+      Error loading requests: ${escapeHtml(e.message)}
+    </div>`;
+    toast('Failed to load requests', 'error');
+  }
+}
+
+/* FIX 4: Render list — filtered by activeStatusFilter */
+let _lastStockMap = {};
+function renderRequestList(docs, stockMap) {
+  if (stockMap) _lastStockMap = stockMap;
+  const el   = qs('#reqList');
+  const show = activeStatusFilter
+    ? docs.filter(d => d.status === activeStatusFilter)
+    : docs;
+
+  if (!show.length) {
+    el.innerHTML = `<div style="text-align:center;padding:18px;color:var(--gray-500);font-size:13px;">
+      <i class="fa-solid fa-inbox" style="font-size:22px;opacity:.3;display:block;margin-bottom:6px;"></i>
+      No ${activeStatusFilter || ''} requests found
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = '';
+  show.forEach((d, i) => {
+    const badge =
+      d.status==='Approved' ? '<span class="badge badge-success">✓ Approved</span>' :
+      d.status==='Pending'  ? '<span class="badge badge-warning">⏳ Pending</span>'  :
+      d.status==='Rejected' ? '<span class="badge badge-danger">✕ Rejected</span>'  :
+      '<span class="badge badge-gray">—</span>';
+
+    const inv      = _lastStockMap[d.materialId];
+    const avail    = inv ? (inv.availableQty ?? inv.receivedQty ?? 0) : null;
+    const availStr = avail != null ? formatReadable(avail, inv.containerUnit) : '—';
+
+    /* Requested-by and date */
+    const dt    = d.createdAt?.toDate ? d.createdAt.toDate() : null;
+    const dtStr = dt ? dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+
+    const card = document.createElement('div');
+    card.className = 'req-card';
+    card.style.animationDelay = `${i * 0.04}s`;
+    card.innerHTML = `
+      <div class="req-icon"><i class="fa-solid fa-file-circle-plus"></i></div>
+      <div class="req-body">
+        <div class="req-name">${escapeHtml(d.materialName)}</div>
+        <div class="req-meta">
+          <b>${escapeHtml(d.requestedUnit)}</b> &nbsp;·&nbsp;
+          Qty: <b>${escapeHtml(String(d.requestedQty))}</b>
+          &nbsp;·&nbsp; In stock: <b>${escapeHtml(availStr)}</b>
+        </div>
+        <div style="font-size:10px;color:var(--gray-400);margin-top:2px;">
+          ${escapeHtml(d.requestedBy||'—')}
+          ${dtStr ? ' · ' + dtStr : ''}
+          ${d.remarks ? ' · <i>' + escapeHtml(d.remarks) + '</i>' : ''}
+        </div>
+      </div>
+      <div class="req-status">${badge}</div>`;
+    el.appendChild(card);
+  });
+}
+
+/* FIX 4: Status filter handlers */
+function filterByStatus(status) {
+  if (activeStatusFilter === status) {
+    clearStatusFilter(); return;
+  }
+  activeStatusFilter = status;
+
+  /* Highlight active card */
+  ['Pending','Approved','Rejected'].forEach(s => {
+    const card = document.getElementById('card'+s);
+    if (card) card.classList.toggle('active-filter', s === status);
+  });
+
+  /* Show filter pill */
+  const pill = qs('#filterPill');
+  qs('#filterPillLabel').textContent = status;
+  pill.classList.add('show');
+
+  /* Scroll to list */
+  qs('#reqSection').scrollIntoView({ behavior:'smooth', block:'start' });
+
+  renderRequestList(allRequestsDocs, null);
+}
+
+function clearStatusFilter() {
+  activeStatusFilter = '';
+  ['Pending','Approved','Rejected'].forEach(s => {
+    const card = document.getElementById('card'+s);
+    if (card) card.classList.remove('active-filter');
+  });
+  qs('#filterPill').classList.remove('show');
+  renderRequestList(allRequestsDocs, null);
+}
+
+/* Events */
+reqDept.addEventListener('change', () => {
+  reqCategory.innerHTML   = '<option value="">Select Dept first</option>';
+  reqMaterial.innerHTML   = '<option value="">Select Category first</option>';
+  reqUnit.innerHTML       = '<option value="">Select material first</option>';
+  stockHint.style.display = 'none';
+  inventoryCache = {};
+  if (reqDept.value) loadCategories();
+});
+reqCategory.addEventListener('change', () => {
+  reqMaterial.innerHTML   = '<option value="">Select Category first</option>';
+  reqUnit.innerHTML       = '<option value="">Select material first</option>';
+  stockHint.style.display = 'none';
+  inventoryCache = {};
+  if (reqCategory.value) loadMaterials();
+});
+reqMaterial.addEventListener('change', () => {
+  reqUnit.innerHTML       = '<option value="">Select material first</option>';
+  stockHint.style.display = 'none';
+  if (reqMaterial.value) populateUnits();
+});
+
+qs('#reloadReq').addEventListener('click', () => { activeStatusFilter=''; loadAllRequests(); });
+qs('#monthFilter').addEventListener('change', () => { activeStatusFilter=''; loadAllRequests(); });
+
+qs('#clearReq').addEventListener('click', () => {
+  reqDept.value    = currentDept || '';
+  reqCategory.innerHTML = '<option value="">Select Dept first</option>';
+  reqMaterial.innerHTML = '<option value="">Select Category first</option>';
+  reqUnit.innerHTML     = '<option value="">Select material first</option>';
+  reqQty.value     = '';
+  reqRemarks.value = '';
+  reqMsg.textContent   = '';
+  stockHint.style.display = 'none';
+  inventoryCache = {};
+  if (reqDept.value) loadCategories();
+});
+</script>
+</body>
+</html>
